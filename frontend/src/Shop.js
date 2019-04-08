@@ -36,6 +36,7 @@ class Shop extends Component  {
     	selectedItem: null,
 
     	paymentIntentID: null,
+    	paymentIntentSecret: null,
     	paymentIntentActionInProgress: null,
     	error: null
     };
@@ -127,6 +128,7 @@ class Shop extends Component  {
 				{
 					paymentIntentActionInProgress: null,
 					paymentIntentID: data.id,
+					paymentIntentSecret: data.client_secret,
 				},
 				callback,
 			)
@@ -167,6 +169,7 @@ class Shop extends Component  {
 				{
 					paymentIntentActionInProgress: null,
 					paymentIntentID: null,
+					paymentIntentSecret: null,
 				},
 				callback,
 			)
@@ -207,11 +210,11 @@ class Shop extends Component  {
 		    }
 
 	    	{this.state.selectedItem !== null &&
-		      <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq">
+		      <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq" betas={['card_payment_method_beta_1']}>
 		      	<div>
 			      	{this.zinesTable([this.loadZineById(this.state.selectedItem)])}
 			      	<Elements>
-			      		<CheckoutForm paymentIntentID={this.state.paymentIntentID} />
+			      		<CheckoutForm paymentIntentID={this.state.paymentIntentID} paymentIntentSecret={this.state.paymentIntentSecret} shop={this}/>
 		        	</Elements>
 	        	</div>
 	        </StripeProvider>
@@ -222,16 +225,53 @@ class Shop extends Component  {
 }
 
 class RawCheckoutForm extends Component {
-	async submit(ev) {
-		console.log(ev)
+	constructor(props) {
+    super(props);
+    this.state = {
+    	cardElement: null,
+    	error: null,
+    }
+  }
+
+	submit(ev) {
+	  this.setState({
+    	error: null,
+    })
+		this.props.stripe.handleCardPayment(
+			this.props.paymentIntentSecret,
+			this.state.cardElement,
+		)
+  	.then(function(result) {
+	    if (result.error) {
+	      this.setState({
+	      	error: result.error.message,
+	      })
+	    } else {
+	      console.log(result)
+	    }
+		}.bind(this))
+	}
+
+	stashCardElement(e) {
+		this.setState({
+			cardElement: e
+		})
 	}
 
 	render() {
 		return (
 			<div className="checkout-form">
 				Payment Intent: <code>{this.props.paymentIntentID}</code>
-				<CardElement />
-	      <button className="checkout-submit" onClick={this.submit.bind(this)}>Send</button>
+
+				{this.state.error &&
+			    <div class="alert-danger">
+            {this.state.error.toString()}
+          </div>
+        }
+				<CardElement onReady={this.stashCardElement.bind(this)} />
+				{this.state.cardElement !== null &&
+	      	<button className="checkout-submit" onClick={this.submit.bind(this)}>Send</button>
+	      }
 	    </div>
 		)
 	}
