@@ -1,0 +1,16 @@
+.alert-danger {
+  color: red;
+}
+
+.App {
+  padding: 10px;
+}
+
+.App-header {
+  font-size: calc(16px + 2vmin);
+  border-bottom: 1px solid grey;
+}
+
+.App-body {
+
+}
