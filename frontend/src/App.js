@@ -2,21 +2,27 @@ import React, { Component } from 'react';
 import { BrowserRouter as Router, Route, Link } from "react-router-dom";
 
 import './App.css';
-import Loading from './Loading';
+import Loading, {withLoading} from './Loading';
 import Shop from './Shop';
 
 class App extends Component {
   render() {
     return (
       <div className="App">
-        <div className="App-header">
-          SCA Zines
-        </div>
-
         <Router>
+          <div className="App-header">
+            <span>SCA Zines — </span>
+            <Link to="/">home</Link>
+          </div>
+
+
           <Route exact path="/" component={Home} />
           <Route exact path="/sign_up" component={SignUp} />
-          <Route exact path="/log_in" component={LogIn} />
+          <Route exact path="/log_in" component={
+            withLoading(LogIn, '/list_of_users', {
+              credentials: 'same-origin',
+            })
+          } />
           <Route exact path="/shop" component={Shop} />
           <Route path="/logged_in_as/:id" component={LoggedIn} />
         </Router>
@@ -51,71 +57,31 @@ function SignUp() {
 }
 
 class LogIn extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {loading: true};
-  }
-
-  componentDidMount() {
-    this.getData();
-  }
-
-  getData() {
-    fetch('/list_of_users', {
-      credentials: 'same-origin',
-    })
-    .then(function(response) {
-      if (!response.ok) {
-          throw Error(response.statusText);
-      }
-      return response;
-    })
-    .then(function(response) {
-      return response.json()
-    })
-    .then(function(data) {
-      this.setState({loading: false, users: data, error: null})
-    }.bind(this))
-    .catch(function(err) {
-      this.setState({loading: false, error: err})
-    }.bind(this))
-  }
-
   render() {
-    if (this.state.loading) {
-      return <Loading maxTicks={4} interval={250} />
-    } else if (this.state.error) {
-      return (
-        <div class="alert-danger">
-          {this.state.error.toString()}
-        </div>
+    var rows = [];
+    this.props.data.forEach((u) => {
+      rows.push(
+        <tr>
+          <td>{u.metadata.username}</td>
+          <td>
+            <Link to={`/logged_in_as/${u.id}`}>
+              {u.id}
+            </Link>
+          </td>
+        </tr>
       )
-    } else {
-      var rows = [];
-      this.state.users.forEach((u) => {
-        rows.push(
-          <tr>
-            <td>{u.metadata.username}</td>
-            <td>
-              <Link to={`/logged_in_as/${u.id}`}>
-                {u.id}
-              </Link>
-            </td>
-          </tr>
-        )
-      })
-      return (
-        <div>
-          <table>
-            <th>
-              <td>Username</td>
-              <td>Id</td>
-            </th>
-            {rows}
-          </table>
-        </div>
-      )
-    }
+    })
+    return (
+      <div>
+        <table>
+          <th>
+            <td>Username</td>
+            <td>Id</td>
+          </th>
+          {rows}
+        </table>
+      </div>
+    )
   }
 }
 

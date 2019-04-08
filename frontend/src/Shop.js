@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
+import Loading from './Loading';
+
 class Shop extends Component  {
 	constructor(props) {
     super(props);
@@ -11,7 +13,7 @@ class Shop extends Component  {
     			author: "Louis",
     			title: "Dublin Weather Report",
     			edition: "April 2019",
-    			price_amount: 500,
+    			price_amount: 504,
     			price_currency: 'eur',
     		},
     		{
@@ -19,7 +21,7 @@ class Shop extends Component  {
     			author: "Louis",
     			title: "Dublin Weather Report",
     			edition: "March 2019",
-    			price_amount: 500,
+    			price_amount: 503,
     			price_currency: 'eur',
     		},
     		{
@@ -27,11 +29,15 @@ class Shop extends Component  {
     			author: "Louis",
     			title: "Dublin Weather Report",
     			edition: "February 2019",
-    			price_amount: 500,
+    			price_amount: 502,
     			price_currency: 'eur',
     		},
     	],
     	selectedItem: null,
+
+    	paymentIntentID: null,
+    	paymentIntentActionInProgress: null,
+    	error: null
     };
   }
 
@@ -43,13 +49,17 @@ class Shop extends Component  {
 
   toggleItem(id) {
   	if (this.state.selectedItem === null) {
-	  	this.setState({
-	  		selectedItem: id,
-	  	})
+	  	this.createPaymentIntent(id, function() {
+		  	this.setState({
+		  		selectedItem: id,
+		  	})
+	  	}.bind(this));
 	  } else {
-	  	this.setState({
-	  		selectedItem: null,
-	  	})
+	  	this.cancelPaymentIntent(this.state.paymentIntentID, function() {
+		  	this.setState({
+		  		selectedItem: null,
+		  	})
+	  	}.bind(this));
 	  }
   }
 
@@ -85,7 +95,108 @@ class Shop extends Component  {
 		)
 	}
 
+	createPaymentIntent(zineID, callback) {
+		this.setState({
+			paymentIntentActionInProgress: 'creating',
+		})
+		// TODO: make this create them for a user!!
+		var zine = this.loadZineById(zineID)
+		var params = {
+			amount: zine.price_amount,
+			currency: zine.price_currency,
+		}
+		fetch('/create_payment_intent', {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+		})
+		.then(function(response) {
+		  if (!response.ok) {
+          throw Error(response.statusText);
+      }
+      return response;
+		})
+		.then(function(response) {
+			return response.json()
+		})
+		.then(function(data) {
+			this.setState(
+				{
+					paymentIntentActionInProgress: null,
+					paymentIntentID: data.id,
+				},
+				callback,
+			)
+		}.bind(this))
+		.catch(function(err) {
+			this.setState({
+				error: err,
+			})
+		}.bind(this))
+	}
+
+	cancelPaymentIntent(id, callback) {
+		this.setState({
+			paymentIntentActionInProgress: 'canceling',
+		})
+		var params = {
+			id: id,
+		}
+		fetch('/cancel_payment_intent', {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+		})
+		.then(function(response) {
+		  if (!response.ok) {
+          throw Error(response.statusText);
+      }
+      return response;
+		})
+		.then(function(response) {
+			return response.json()
+		})
+		.then(function(data) {
+			this.setState(
+				{
+					paymentIntentActionInProgress: null,
+					paymentIntentID: null,
+				},
+				callback,
+			)
+		}.bind(this))
+		.catch(function(err) {
+			this.setState({
+				error: err,
+			})
+		}.bind(this))
+	}
+
   render() {
+  	if (this.state.error != null) {
+      return (
+      	<div class="alert-danger">
+      		<div>{this.state.paymentIntentActionInProgress} payment intent</div>
+	        {this.state.error.toString()}
+	      </div>
+	    )
+  	}
+
+  	if (this.state.paymentIntentActionInProgress !== null) {
+  		return (
+  			<div>
+  				<span>{this.state.paymentIntentActionInProgress} payment intent</span>
+  				<Loading maxTicks={4} interval={250} />
+  			</div>
+  		)
+  	}
+
 	  return (
 	    <div>
 	    	{this.state.selectedItem === null &&
@@ -98,11 +209,9 @@ class Shop extends Component  {
 	    	{this.state.selectedItem !== null &&
 		      <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq">
 		      	<div>
-
 			      	{this.zinesTable([this.loadZineById(this.state.selectedItem)])}
-
 			      	<Elements>
-			      		<CheckoutForm />
+			      		<CheckoutForm paymentIntentID={this.state.paymentIntentID} />
 		        	</Elements>
 	        	</div>
 	        </StripeProvider>
@@ -120,6 +229,7 @@ class RawCheckoutForm extends Component {
 	render() {
 		return (
 			<div className="checkout-form">
+				Payment Intent: <code>{this.props.paymentIntentID}</code>
 				<CardElement />
 	      <button className="checkout-submit" onClick={this.submit.bind(this)}>Send</button>
 	    </div>
