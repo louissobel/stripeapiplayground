@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Link } from "react-router-dom";
 
 import './App.css';
 import Loading from './Loading';
+import Shop from './Shop';
 
 class App extends Component {
   render() {
@@ -29,6 +30,7 @@ function Home() {
     <ul>
       <li>Either <Link to="/log_in">log in</Link></li>
       <li>Or <Link to="/sign_up">create an account</Link></li>
+      <li>Or <Link to="/shop">just shop</Link></li>
     </ul>
   )
 }
@@ -125,14 +127,5 @@ function LoggedIn({ match }) {
     </div>
   );
 }
-
-function Shop(props) {
-  return (
-    <div>
-      <h2>Shopping time as {props.customerId}</h2>
-    </div>
-  );
-}
-
 
 export default App;
