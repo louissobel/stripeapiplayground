@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
 import Loading from './Loading';
+import CheckoutForm from './CheckoutForm'
 
 class Shop extends Component  {
 	constructor(props) {
@@ -35,10 +36,13 @@ class Shop extends Component  {
     	],
     	selectedItem: null,
 
-    	paymentIntentID: null,
-    	paymentIntentSecret: null,
+    	paymentIntent: null,
     	paymentIntentActionInProgress: null,
-    	error: null
+
+    	cardElement: null,
+
+    	error: null,
+    	checkoutError: null,
     };
   }
 
@@ -56,7 +60,7 @@ class Shop extends Component  {
 		  	})
 	  	}.bind(this));
 	  } else {
-	  	this.cancelPaymentIntent(this.state.paymentIntentID, function() {
+	  	this.cancelPaymentIntent(this.state.paymentIntent.id, function() {
 		  	this.setState({
 		  		selectedItem: null,
 		  	})
@@ -127,8 +131,10 @@ class Shop extends Component  {
 			this.setState(
 				{
 					paymentIntentActionInProgress: null,
-					paymentIntentID: data.id,
-					paymentIntentSecret: data.client_secret,
+					paymentIntent: {
+						id: data.id,
+						clientSecret: data.client_secret,
+					}
 				},
 				callback,
 			)
@@ -168,8 +174,7 @@ class Shop extends Component  {
 			this.setState(
 				{
 					paymentIntentActionInProgress: null,
-					paymentIntentID: null,
-					paymentIntentSecret: null,
+					paymentIntent: null,
 				},
 				callback,
 			)
@@ -179,6 +184,12 @@ class Shop extends Component  {
 				error: err,
 			})
 		}.bind(this))
+	}
+
+	checkoutSuccess() {
+		this.setState({
+			checkoutDone: true,
+		})
 	}
 
   render() {
@@ -200,6 +211,12 @@ class Shop extends Component  {
   		)
   	}
 
+  	if (this.state.checkoutDone) {
+  		return (
+  			<h3>Checkout, success, thank you for your purchase</h3>
+  		)
+  	}
+
 	  return (
 	    <div>
 	    	{this.state.selectedItem === null &&
@@ -210,72 +227,20 @@ class Shop extends Component  {
 		    }
 
 	    	{this.state.selectedItem !== null &&
-		      <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq" betas={['card_payment_method_beta_1']}>
+		      
 		      	<div>
 			      	{this.zinesTable([this.loadZineById(this.state.selectedItem)])}
 			      	<Elements>
-			      		<CheckoutForm paymentIntentID={this.state.paymentIntentID} paymentIntentSecret={this.state.paymentIntentSecret} shop={this}/>
+			      		<CheckoutForm
+			      			paymentIntent={this.state.paymentIntent}
+			      			onComplete={this.checkoutSuccess.bind(this)}
+			      		/>
 		        	</Elements>
 	        	</div>
-	        </StripeProvider>
       	}
 	    </div>
 	  );
 	}
 }
-
-class RawCheckoutForm extends Component {
-	constructor(props) {
-    super(props);
-    this.state = {
-    	cardElement: null,
-    	error: null,
-    }
-  }
-
-	submit(ev) {
-	  this.setState({
-    	error: null,
-    })
-		this.props.stripe.handleCardPayment(
-			this.props.paymentIntentSecret,
-			this.state.cardElement,
-		)
-  	.then(function(result) {
-	    if (result.error) {
-	      this.setState({
-	      	error: result.error.message,
-	      })
-	    } else {
-	      console.log(result)
-	    }
-		}.bind(this))
-	}
-
-	stashCardElement(e) {
-		this.setState({
-			cardElement: e
-		})
-	}
-
-	render() {
-		return (
-			<div className="checkout-form">
-				Payment Intent: <code>{this.props.paymentIntentID}</code>
-
-				{this.state.error &&
-			    <div class="alert-danger">
-            {this.state.error.toString()}
-          </div>
-        }
-				<CardElement onReady={this.stashCardElement.bind(this)} />
-				{this.state.cardElement !== null &&
-	      	<button className="checkout-submit" onClick={this.submit.bind(this)}>Send</button>
-	      }
-	    </div>
-		)
-	}
-}
-const CheckoutForm = injectStripe(RawCheckoutForm);
 
 export default Shop;

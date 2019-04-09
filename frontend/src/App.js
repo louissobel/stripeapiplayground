@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { BrowserRouter as Router, Route, Link } from "react-router-dom";
+import {StripeProvider} from 'react-stripe-elements';
 
 import './App.css';
 import Loading, {withLoading} from './Loading';
@@ -9,23 +10,25 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <Router>
-          <div className="App-header">
-            <span>SCA Zines — </span>
-            <Link to="/">home</Link>
-          </div>
+        <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq" betas={['card_payment_method_beta_1']}>
+          <Router>
+            <div className="App-header">
+              <span>SCA Zines — </span>
+              <Link to="/">home</Link>
+            </div>
 
 
-          <Route exact path="/" component={Home} />
-          <Route exact path="/sign_up" component={SignUp} />
-          <Route exact path="/log_in" component={
-            withLoading(LogIn, '/list_of_users', {
-              credentials: 'same-origin',
-            })
-          } />
-          <Route exact path="/shop" component={Shop} />
-          <Route path="/logged_in_as/:id" component={LoggedIn} />
-        </Router>
+            <Route exact path="/" component={Home} />
+            <Route exact path="/sign_up" component={SignUp} />
+            <Route exact path="/log_in" component={
+              withLoading(LogIn, '/list_of_users', {
+                credentials: 'same-origin',
+              })
+            } />
+            <Route exact path="/shop" component={Shop} />
+            <Route path="/logged_in_as/:id" component={LoggedIn} />
+          </Router>
+        </StripeProvider>
       </div>
     );
   }

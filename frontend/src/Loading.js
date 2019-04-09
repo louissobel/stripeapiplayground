@@ -26,7 +26,8 @@ class Loading extends Component {
     var dots = Array(this.state.tick).fill(".")
 
     return (
-      <h4>Loading{dots}</h4>
+      <h4>
+        {!this.props.dotsOnly && "Loading"}{dots}</h4>
     )
   }
 }
