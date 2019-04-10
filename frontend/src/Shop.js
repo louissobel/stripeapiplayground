@@ -1,116 +1,56 @@
 import React, { Component } from 'react';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
-import Loading from './Loading';
+import Loading, {withLoading} from './Loading';
 import CheckoutForm from './CheckoutForm'
+import OrderComplete from './OrderComplete'
+import ZinesTable from './ZinesTable'
 
 class Shop extends Component  {
 	constructor(props) {
     super(props);
     this.state = {
-    	zines: [
-    		{
-    			id: "1",
-    			author: "Louis",
-    			title: "Dublin Weather Report",
-    			edition: "April 2019",
-    			price_amount: 504,
-    			price_currency: 'eur',
-    		},
-    		{
-    			id: "2",
-    			author: "Louis",
-    			title: "Dublin Weather Report",
-    			edition: "March 2019",
-    			price_amount: 503,
-    			price_currency: 'eur',
-    		},
-    		{
-    			id: "3",
-    			author: "Louis",
-    			title: "Dublin Weather Report",
-    			edition: "February 2019",
-    			price_amount: 502,
-    			price_currency: 'eur',
-    		},
-    	],
     	selectedItem: null,
 
     	paymentIntent: null,
     	paymentIntentActionInProgress: null,
-
-    	cardElement: null,
+      fulfillmentURL: null,
 
     	error: null,
-    	checkoutError: null,
     };
   }
 
   loadZineById(id) {
-  	return this.state.zines.find((z) => {
+  	return this.props.data.find((z) => {
   		return z.id == id
   	})
   }
 
-  toggleItem(id) {
-  	if (this.state.selectedItem === null) {
-	  	this.createPaymentIntent(id, function() {
-		  	this.setState({
-		  		selectedItem: id,
-		  	})
-	  	}.bind(this));
-	  } else {
-	  	this.cancelPaymentIntent(this.state.paymentIntent.id, function() {
-		  	this.setState({
-		  		selectedItem: null,
-		  	})
-	  	}.bind(this));
-	  }
+  createOrder(id) {
+    this.createPaymentIntent(id, function() {
+      this.setState({
+        selectedItem: id,
+      })
+    }.bind(this));
   }
 
-	zinesTable(zines) {
-		var rows = [];
-		zines.forEach((z) => {
-			rows.push(
-				<tr>
-	  			<td>{z.author}</td>
-	  			<td>{z.title}</td>
-	  			<td>{z.edition}</td>
-	  			<td>{z.price_amount}, {z.price_currency}</td>
-	  			<td>
-	  				<button onClick={this.toggleItem.bind(this, z.id)}>
-	  					{this.state.selectedItem === null ? "Buy" : "Clear"}
-	  				</button>
-	  			</td>
-	  		</tr>
-			)
-		})
-		return (
-			 <table>
-	  		<tr>
-	  			<th>Author</th>
-	  			<th>Zine</th>
-	  			<th>Edition</th>
-	  			<th>Price</th>
-	  			<th></th>
-	  		</tr>
-	  		{rows}
-
-	  	</table>
-		)
-	}
+  cancelOrder() {
+    this.setState({
+      selectedItem: null,
+    }, function() {
+      this.cancelPaymentIntent(this.state.paymentIntent.id, function() {})
+    }.bind(this));
+  }
 
 	createPaymentIntent(zineID, callback) {
 		this.setState({
 			paymentIntentActionInProgress: 'creating',
 		})
 		// TODO: make this create them for a user!!
-		var zine = this.loadZineById(zineID)
 		var params = {
-			amount: zine.price_amount,
-			currency: zine.price_currency,
+			zine: zineID,
 		}
-		fetch('/create_payment_intent', {
+		fetch('/api/create_payment_intent', {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: {
@@ -153,7 +93,7 @@ class Shop extends Component  {
 		var params = {
 			id: id,
 		}
-		fetch('/cancel_payment_intent', {
+		fetch('/api/cancel_payment_intent', {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: {
@@ -186,10 +126,52 @@ class Shop extends Component  {
 		}.bind(this))
 	}
 
+  finalizePaymentIntent(id, callback) {
+    this.setState({
+      paymentIntentActionInProgress: 'finalizing',
+    })
+    var params = {
+      id: id,
+    }
+    fetch('/api/finalize_payment_intent', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    })
+    .then(function(response) {
+      if (!response.ok) {
+          throw Error(response.statusText);
+      }
+      return response;
+    })
+    .then(function(response) {
+      return response.json()
+    })
+    .then(function(data) {
+      this.setState(
+        {
+          paymentIntentActionInProgress: null,
+          fulfillmentURL: data.fulfillment_url,
+        },
+        callback,
+      )
+    }.bind(this))
+    .catch(function(err) {
+      this.setState({
+        error: err,
+      })
+    }.bind(this))
+  }
+
 	checkoutSuccess() {
-		this.setState({
-			checkoutDone: true,
-		})
+    this.finalizePaymentIntent(this.state.paymentIntent.id, function() {
+      this.setState({
+        checkoutDone: true,
+      })
+    }.bind(this))
 	}
 
   render() {
@@ -212,9 +194,11 @@ class Shop extends Component  {
   	}
 
   	if (this.state.checkoutDone) {
-  		return (
-  			<h3>Checkout, success, thank you for your purchase</h3>
-  		)
+  		return <OrderComplete
+        zine={this.loadZineById(this.state.selectedItem)}
+        paymentIntent={this.state.paymentIntent}
+        fulfillmentURL={this.state.fulfillmentURL}
+      />
   	}
 
 	  return (
@@ -222,18 +206,22 @@ class Shop extends Component  {
 	    	{this.state.selectedItem === null &&
 		    	<div>
 		    		<h4>Things to buy:</h4>
-		    		{this.zinesTable(this.state.zines)}
+		    		<ZinesTable
+              zines={this.props.data}
+              action="Buy"
+              onClick={this.createOrder.bind(this)}
+            />
 		    	</div>
 		    }
 
 	    	{this.state.selectedItem !== null &&
-		      
 		      	<div>
-			      	{this.zinesTable([this.loadZineById(this.state.selectedItem)])}
 			      	<Elements>
 			      		<CheckoutForm
+                  zine={this.loadZineById(this.state.selectedItem)}
 			      			paymentIntent={this.state.paymentIntent}
 			      			onComplete={this.checkoutSuccess.bind(this)}
+                  onCancel={this.cancelOrder.bind(this)}
 			      		/>
 		        	</Elements>
 	        	</div>
@@ -243,4 +231,4 @@ class Shop extends Component  {
 	}
 }
 
-export default Shop;
+export default withLoading(Shop, "/api/zines");

@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
 import Loading from './Loading';
+import ZinesTable from './ZinesTable'
 
 function TestCardsTable() {
 	return (
@@ -103,7 +104,15 @@ class CheckoutForm extends Component {
 	render() {
 		return (
 			<div className="checkout-form">
-				Payment Intent: <code>{this.props.paymentIntent.id}</code>
+        <ZinesTable
+          zines={[this.props.zine]}
+          action="Cancel"
+          onClick={this.props.onCancel}
+        />
+
+        <div>
+				  Payment Intent: <code>{this.props.paymentIntent.id}</code>
+        </div>
 
 				{this.state.error &&
 			    <div className="alert-danger">
@@ -114,7 +123,7 @@ class CheckoutForm extends Component {
 
 				<div className="checkout-submit-container" >
 					{this.showSubmit() &&
-		      	<button className="checkout-submit" onClick={this.onSubmit.bind(this)}>Send</button>
+		      	<button className="action-button" onClick={this.onSubmit.bind(this)}>Send</button>
 		      }
 
 		      {this.state.submitGoingLong && 

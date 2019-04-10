@@ -21,7 +21,7 @@ class App extends Component {
             <Route exact path="/" component={Home} />
             <Route exact path="/sign_up" component={SignUp} />
             <Route exact path="/log_in" component={
-              withLoading(LogIn, '/list_of_users', {
+              withLoading(LogIn, '/api/list_of_users', {
                 credentials: 'same-origin',
               })
             } />
@@ -48,7 +48,7 @@ function SignUp() {
   return (
     <div>
       <h2>Sign Up</h2>
-      <form action="/create_user" method="POST">  
+      <form action="/api/create_user" method="POST">  
         <label>
           Username:
           <input type="text" name="username" />

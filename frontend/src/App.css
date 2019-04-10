@@ -50,7 +50,7 @@
   padding: 15px;
 }
 
-.checkout-submit {
+.action-button {
   width: 100%;
   margin-top: 15px;
   height:40px;
@@ -60,4 +60,8 @@
 
 .checkout-submit-container {
   text-align: center;
+}
+
+.zine-icon {
+  font-size: 2em;
 }
