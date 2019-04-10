@@ -7,6 +7,7 @@
     "react": "^16.8.6",
     "react-currency-formatter": "^1.1.0",
     "react-dom": "^16.8.6",
+    "react-intl": "^2.8.0",
     "react-router-dom": "^5.0.0",
     "react-scripts": "2.1.8",
     "react-stripe-elements": "^2.0.3"

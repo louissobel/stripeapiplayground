@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Currency from 'react-currency-formatter';
+import {FormattedNumber} from 'react-intl'
 
 function ZinesTable(props) {
 	var rows = [];
@@ -12,8 +12,9 @@ function ZinesTable(props) {
   			<td>{z.title}</td>
   			<td>{z.edition}</td>
   			<td>
-          <Currency
-            quantity={z.price_amount}
+          <FormattedNumber
+            value={z.price_amount / 100.0}
+            style="currency"
             currency={z.price_currency}
           />
         </td>
