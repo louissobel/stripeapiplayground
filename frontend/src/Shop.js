@@ -9,14 +9,19 @@ import ZinesTable from './ZinesTable'
 class Shop extends Component  {
 	constructor(props) {
     super(props);
-    this.state = {
-    	selectedItem: null,
+    this.state = this.initialState()
+  }
 
-    	paymentIntent: null,
-    	paymentIntentActionInProgress: null,
+  initialState() {
+    return {
+      selectedItem: null,
+
+      paymentIntent: null,
+      paymentIntentActionInProgress: null,
       fulfillmentURL: null,
 
-    	error: null,
+      error: null,
+      checkoutDone: false,
     };
   }
 
@@ -46,10 +51,13 @@ class Shop extends Component  {
 		this.setState({
 			paymentIntentActionInProgress: 'creating',
 		})
-		// TODO: make this create them for a user!!
 		var params = {
 			zine: zineID,
 		}
+    if (this.props.customer) {
+      params.customer = this.props.customer.id
+    }
+
 		fetch('/api/create_payment_intent', {
 			method: 'POST',
 			credentials: 'same-origin',
@@ -222,6 +230,7 @@ class Shop extends Component  {
 			      			paymentIntent={this.state.paymentIntent}
 			      			onComplete={this.checkoutSuccess.bind(this)}
                   onCancel={this.cancelOrder.bind(this)}
+                  customer={this.props.customer}
 			      		/>
 		        	</Elements>
 	        	</div>

@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/paymentIntent"
+	"github.com/stripe/stripe-go/paymentmethod"
 )
 
 type CreateUserRequest struct {
@@ -19,7 +20,8 @@ type CreateUserRequest struct {
 }
 
 type CreatePaymentIntentRequest struct {
-	ZineID string `json:"zine"`
+	ZineID     string `json:"zine"`
+	CustomerID string `json:"customer"`
 }
 
 type CancelPaymentIntentRequest struct {
@@ -33,6 +35,15 @@ type FinalizePaymentIntentRequest struct {
 type DownloadZineRequest struct {
 	PaymentIntentID string `query:"pi"`
 	Key             string `query:"key"`
+}
+
+type CustomerDataRequest struct {
+	ID string `query:"id"`
+}
+
+type CustomerData struct {
+	ID                 string                  `json:"id"`
+	CardPaymentMethods []*stripe.PaymentMethod `json:"card_payment_methods"`
 }
 
 func main() {
@@ -119,6 +130,21 @@ func main() {
 		})
 	})
 
+	e.GET("/api/customer_data", func(c echo.Context) error {
+		r := new(CustomerDataRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		data, err := customerData(r)
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(http.StatusOK, data)
+	})
+
 	e.GET("/download_zine", func(c echo.Context) error {
 		r := new(DownloadZineRequest)
 		err := c.Bind(r)
@@ -155,6 +181,7 @@ func main() {
 		}
 		return c.Blob(http.StatusOK, "application/pdf", pdf)
 	})
+
 	e.Logger.Fatal(e.Start(":1323"))
 }
 
@@ -200,6 +227,9 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 			},
 		},
 	}
+	if r.CustomerID != "" {
+		params.Customer = stripe.String(r.CustomerID)
+	}
 	return paymentintent.New(params)
 }
 
@@ -243,4 +273,22 @@ func fulfillPaymentIntent(id string) (string, error) {
 	}
 
 	return url, nil
+}
+
+func customerData(r *CustomerDataRequest) (CustomerData, error) {
+	// Get card payment methods
+	pms := []*stripe.PaymentMethod{}
+
+	params := &stripe.PaymentMethodListParams{}
+	params.Filters.AddFilter("customer", "", r.ID)
+	params.Filters.AddFilter("type", "", "card")
+	i := paymentmethod.List(params)
+	for i.Next() {
+		pms = append(pms, i.PaymentMethod())
+	}
+
+	return CustomerData{
+		ID:                 r.ID,
+		CardPaymentMethods: pms,
+	}, nil
 }

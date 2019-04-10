@@ -3,6 +3,7 @@ import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-
 
 import Loading from './Loading';
 import ZinesTable from './ZinesTable'
+import {FormattedDate, FormattedTime} from 'react-intl'
 
 function TestCardsTable() {
 	return (
@@ -17,6 +18,41 @@ function TestCardsTable() {
 	)
 }
 
+function SavedCardsList({ customer, showUse, onUse}) {
+  if (customer.card_payment_methods.length == 0) {
+    return <h4>No saved cards</h4>
+  } else {
+    var cards = []
+    customer.card_payment_methods.forEach((c) => {
+      cards.push(
+        <li>
+          <code>{c.id}</code> — {c.card.brand} — {c.card.last4} — 
+          <FormattedDate
+            value={new Date(c.created * 1000)}
+          /> at <FormattedTime
+            value={new Date(c.created * 1000)}
+          />
+          {showUse &&
+            <button className="inline-action-button" onClick={function() {
+              onUse(c.id)
+            }}>
+              USE
+            </button>
+          }
+        </li>
+      )
+    })
+    return (
+      <div>
+        <h4>Saved Cards:</h4>
+        <ul>
+          {cards}
+        </ul>
+      </div>
+    )
+  }
+}
+
 const HIDE_SUBMIT_AFTER_INTERVAL = 250;
 
 class CheckoutForm extends Component {
@@ -28,6 +64,8 @@ class CheckoutForm extends Component {
     	error: null,
     	cardElement: null,
     	showTestCards: false,
+
+      saveCard: false,
 
     	// Two booleans for tracking in-progress submit — 
     	// one that goes true right away, and the other that goes
@@ -55,51 +93,84 @@ class CheckoutForm extends Component {
   	})
   }
 
-  async onSubmit(ev) {
-  	console.log("submit!!");
-  	if (this.state.submitStarted) {
-  		console.log("blocked double submit");
-  		return
-  	}
+  startSubmit() {
+    console.log("submit!!");
+    if (this.state.submitStarted) {
+      console.log("blocked double submit");
+      return
+    }
 
-  	var submitGoingLongTimeout = setTimeout(function() {
-  		console.log("submit going long")
-  		this.setState({
-  			submitGoingLong: true,
-  			submitGoingLongTimeout: null,
-  		})
-  	}.bind(this), HIDE_SUBMIT_AFTER_INTERVAL)
-  	this.setState({
-    	error: null,
-    	submitStarted: true,
-    	submitGoingLongTimeout: submitGoingLongTimeout,
+    var submitGoingLongTimeout = setTimeout(function() {
+      console.log("submit going long")
+      this.setState({
+        submitGoingLong: true,
+        submitGoingLongTimeout: null,
+      })
+    }.bind(this), HIDE_SUBMIT_AFTER_INTERVAL)
+    this.setState({
+      error: null,
+      submitStarted: true,
+      submitGoingLongTimeout: submitGoingLongTimeout,
     })
+  }
 
-		this.props.stripe.handleCardPayment(
+  finishCardPaymentPromise(cpp) {
+    cpp.then(function(result) {
+      if (this.state.submitGoingLongTimeout) {
+        clearTimeout(this.state.submitGoingLongTimeout)
+      }
+      this.setState({
+        submitStarted: false,
+        submitGoingLong: false,
+      })
+      if (result.error) {
+        console.log("got failure back")
+        this.setState({
+          error: result.error.message,
+        })
+      } else {
+        this.setState({
+          complete: true,
+        })
+        this.props.onComplete()
+      }
+    }.bind(this))
+  }
+
+  onSubmit(ev) {
+    this.startSubmit()
+
+		var cardPaymentPromise = this.props.stripe.handleCardPayment(
 			this.props.paymentIntent.clientSecret,
 			this.state.cardElement,
+      {
+        save_payment_method: this.state.saveCard,
+      }
 		)
-  	.then(function(result) {
-			if (this.state.submitGoingLongTimeout) {
-    		clearTimeout(this.state.submitGoingLongTimeout)
-    	}
-    	this.setState({
-    		submitStarted: false,
-	      submitGoingLong: false,
-    	})
-	    if (result.error) {
-	    	console.log("got failure back")
-	      this.setState({
-	      	error: result.error.message,
-	      })
-	    } else {
-	      this.setState({
-	      	complete: true,
-	      })
-	      this.props.onComplete()
-	    }
-		}.bind(this))
+
+    this.finishCardPaymentPromise(cardPaymentPromise)
 	}
+
+  onReuseCard(id) {
+    this.startSubmit()
+
+    var cardPaymentPromise = this.props.stripe.handleCardPayment(
+      this.props.paymentIntent.clientSecret,
+      {
+        payment_method: id,
+      }
+    )
+
+    this.finishCardPaymentPromise(cardPaymentPromise)
+  }
+
+  handleSaveCardChange(event) {
+    //debugger;
+    const target = event.target;
+    this.setState({
+      saveCard: target.checked,
+    })
+  }
 
 	render() {
 		return (
@@ -119,7 +190,26 @@ class CheckoutForm extends Component {
             {this.state.error.toString()}
           </div>
         }
+        {this.props.customer &&
+          <SavedCardsList
+            customer={this.props.customer}
+            showUse={this.showSubmit()}
+            onUse={this.onReuseCard.bind(this)}
+          />
+        }
+
 				<CardElement onReady={this.stashElement.bind(this)} />
+
+        {this.props.customer &&
+          <div>
+            <input
+              type="checkbox"
+              checked={this.state.saveCard}
+              onChange={this.handleSaveCardChange.bind(this)}
+            />
+            Save Card ({this.state.saveCard ? "true" : "false"})
+          </div>
+        }
 
 				<div className="checkout-submit-container" >
 					{this.showSubmit() &&

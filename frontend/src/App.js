@@ -92,10 +92,15 @@ class LogIn extends Component {
 }
 
 function LoggedIn({ match }) {
+  const ShopWithCustomer = withLoading(function(props) {
+    var {data, ...rest} = props;
+    return <Shop customer={data} {...rest} />
+  }, `/api/customer_data?id=${match.params.id}`)
+
   return (
     <div>
       <h2>Welcome {match.params.id}</h2>
-      <Shop customerId={match.params.id} />
+      <ShopWithCustomer />
     </div>
   );
 }
