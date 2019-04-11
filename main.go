@@ -13,7 +13,7 @@ import (
 
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
-	"github.com/stripe/stripe-go/paymentIntent"
+	"github.com/stripe/stripe-go/paymentintent"
 	"github.com/stripe/stripe-go/paymentmethod"
 )
 
