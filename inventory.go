@@ -8,6 +8,7 @@ type Zine struct {
 	PriceAmount   int    `json:"price_amount"`
 	PriceCurrency string `json:"price_currency"`
 	Icon          string `json:"icon"`
+	Account       string `json:"account"`
 }
 
 func LoadZine(id string) (Zine, bool, error) {
@@ -33,6 +34,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   504,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
+			Account:       "acct_1EO2B2A6awGcDSWX",
 		},
 		{
 			Id:            "2",
@@ -42,6 +44,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   503,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
+			Account:       "acct_1EO2B2A6awGcDSWX",
 		},
 		{
 			Id:            "3",
@@ -51,6 +54,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   502,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
+			Account:       "acct_1EO2B2A6awGcDSWX",
 		},
 		{
 			Id:            "4",
@@ -60,6 +64,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   100,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
+			Account:       "acct_1EO2B2A6awGcDSWX",
 		},
 	}
 

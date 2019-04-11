@@ -8,7 +8,7 @@ function ZinesTable(props) {
 		rows.push(
 			<tr>
 			  <td className="zine-icon">{z.icon}</td>
-  			<td>{z.author}</td>
+  			<td>{z.author} (<code>{z.account}</code>)</td>
   			<td>{z.title}</td>
   			<td>{z.edition}</td>
   			<td>

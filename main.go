@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/labstack/echo"
@@ -221,6 +222,10 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 	params := &stripe.PaymentIntentParams{
 		Amount:   stripe.Int64(int64(zine.PriceAmount)),
 		Currency: stripe.String(zine.PriceCurrency),
+		TransferData: &stripe.PaymentIntentTransferDataParams{
+			Destination: stripe.String(zine.Account),
+		},
+		ApplicationFeeAmount: stripe.Int64(int64(computeApplicationFeeAmount(zine.PriceAmount))),
 		Params: stripe.Params{
 			Metadata: map[string]string{
 				"zine": r.ZineID,
@@ -291,4 +296,9 @@ func customerData(r *CustomerDataRequest) (CustomerData, error) {
 		ID:                 r.ID,
 		CardPaymentMethods: pms,
 	}, nil
+}
+
+func computeApplicationFeeAmount(chargeAmount int) int {
+	// Flat 5%, round down to be nice
+	return int(math.Floor(float64(chargeAmount) * 0.05))
 }

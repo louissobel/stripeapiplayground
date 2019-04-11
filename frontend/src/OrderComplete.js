@@ -6,7 +6,7 @@ import ZinesTable from './ZinesTable'
 function OrderComplete(props) {
   return (
     <div>
-      <h3>Order Complete</h3>
+      <h3>Order Complete! <code>{props.paymentIntent.id}</code></h3>
         <ZinesTable
           zines={[props.zine]}
           action={null}
