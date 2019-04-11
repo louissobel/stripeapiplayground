@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/labstack/gommon/log"
 
-	"github.com/google/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/paymentIntent"
@@ -52,7 +53,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Logger.SetLevel(log.DEBUG)
 
-	stripe.Key = "sk_test_CLfNzxNaOJzM89z5BdKcGgZ400ioS5gsib"
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
 
 	e.POST("/api/create_user", func(c echo.Context) error {
 		r := new(CreateUserRequest)

@@ -11,7 +11,7 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <StripeProvider apiKey="pk_test_CUWEAiWmHR3muLpWWDLlmWCD00nfdS9Wmq" betas={['card_payment_method_beta_1']}>
+        <StripeProvider apiKey={process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY} betas={['card_payment_method_beta_1']}>
           <IntlProvider>
             <Router>
               <div className="App-header">
