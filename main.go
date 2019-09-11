@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/gommon/log"
 
 	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/checkout/session"
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/paymentintent"
 	"github.com/stripe/stripe-go/paymentmethod"
@@ -43,6 +44,14 @@ type SavePaymentMethodToCustomerFromSetupIntentRequest struct {
 	SetupIntentID string `json:"setup_intent"`
 }
 
+type CreateCheckoutSetupSessionRequest struct {
+	CustomerID string `json:"customer"`
+}
+
+type FinishCheckoutSetupSessionRequest struct {
+	SessionID string `query:"session"`
+}
+
 type FinalizePaymentIntentRequest struct {
 	ID string `json:"id"`
 }
@@ -60,6 +69,8 @@ type CustomerData struct {
 	ID                 string                  `json:"id"`
 	CardPaymentMethods []*stripe.PaymentMethod `json:"card_payment_methods"`
 }
+
+const BASE_URL = "http://localhost:3000"
 
 func main() {
 	e := echo.New()
@@ -175,7 +186,6 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]string{"id": r.ID})
 	})
 
-
 	e.POST("/api/save_payment_method_to_customer_from_setup_intent", func(c echo.Context) error {
 		r := new(SavePaymentMethodToCustomerFromSetupIntentRequest)
 		err := c.Bind(r)
@@ -190,6 +200,38 @@ func main() {
 		return c.JSON(http.StatusOK, nil)
 	})
 
+	e.POST("/api/create_checkout_setup_session", func(c echo.Context) error {
+		r := new(CreateCheckoutSetupSessionRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		s, err := createCheckoutSetupSession(r)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Created CheckoutSession: %v\n", s)
+		return c.JSON(http.StatusOK, map[string]string{
+			"id": s.ID,
+		})
+	})
+
+	e.GET("/api/finish_checkout_setup_session", func(c echo.Context) error {
+		r := new(FinishCheckoutSetupSessionRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		customerID, err := finishCheckoutSetupSession(r)
+		if err != nil {
+			return err
+		}
+
+		return c.Redirect(http.StatusSeeOther, fmt.Sprintf("/logged_in_as/%s", customerID))
+	})
 
 	e.GET("/api/customer_data", func(c echo.Context) error {
 		r := new(CustomerDataRequest)
@@ -336,16 +378,96 @@ func savePaymentMethodToCustomerFromSetupIntent(r *SavePaymentMethodToCustomerFr
 	}
 	paymentMethodID := si.PaymentMethod.ID
 
-	params := &stripe.PaymentMethodAttachParams{
-	  Customer: stripe.String(customerID),
-	}
-	_, err = paymentmethod.Attach(paymentMethodID, params)
+	err = attachPaymentMethodToCustomer(paymentMethodID, customerID)
 	if err != nil {
-		return fmt.Errorf("error attaching %s to %s: %v", paymentMethodID, customerID, err)
+		return err
 	}
 
 	fmt.Printf("attached! customerid: %s, paymentMethodID: %s\n", customerID, paymentMethodID)
 	return nil
+}
+
+func createCheckoutSetupSession(r *CreateCheckoutSetupSessionRequest) (*stripe.CheckoutSession, error) {
+	params := &stripe.CheckoutSessionParams{
+		SuccessURL: stripe.String(
+			fmt.Sprintf("%s/api/finish_checkout_setup_session?session={CHECKOUT_SESSION_ID}", BASE_URL),
+		),
+		CancelURL: stripe.String("http://localhost:3000/canceled_sad"),
+		PaymentMethodTypes: stripe.StringSlice([]string{
+			"card",
+		}),
+		Mode: stripe.String(string(stripe.CheckoutSessionModeSetup)),
+		SetupIntentData: &stripe.CheckoutSessionSetupIntentDataParams{
+			Params: stripe.Params{
+				Metadata: map[string]string{
+					"customer": r.CustomerID,
+				},
+			},
+		},
+	}
+	return session.New(params)
+
+}
+
+func finishCheckoutSetupSession(r *FinishCheckoutSetupSessionRequest) (string, error) {
+	fmt.Printf("finishing checkout session: %s\n", r.SessionID)
+
+	params := &stripe.CheckoutSessionParams{}
+	params.AddExpand("setup_intent")
+	params.AddExpand("setup_intent.payment_method")
+	s, err := session.Get(r.SessionID, params)
+	if err != nil {
+		return "", fmt.Errorf("error getting session")
+	}
+
+	if s.SetupIntent == nil {
+		return "", fmt.Errorf("got nil setup intent for session %s", r.SessionID)
+	}
+
+	if s.SetupIntent.Status != stripe.SetupIntentStatusSucceeded {
+		return "", fmt.Errorf("session setupintent (%s) in unexpected status %v", s.SetupIntent.ID, s.SetupIntent.Status)
+	}
+
+	customerID := s.SetupIntent.Metadata["customer"]
+	if customerID == "" {
+		return "", fmt.Errorf("no customer found in SetupIntent metadata for setup intent %s", s.SetupIntent.ID)
+	}
+
+	if s.SetupIntent.PaymentMethod == nil {
+		return "", fmt.Errorf("setupintents payment method is unexpectedly nil: %s", s.SetupIntent.ID)
+	}
+
+	// This need also be idempotent given it's called from GET request
+
+	if s.SetupIntent.PaymentMethod.Object == "" {
+		// Protect against this not expanding properly by checking some other field...
+		panic("did not properly expant payment method!")
+	}
+
+	if s.SetupIntent.PaymentMethod.Customer != nil {
+		if s.SetupIntent.PaymentMethod.Customer.ID != customerID {
+			return "", fmt.Errorf(
+				"payment method (%s), already attached to unexpected customer: %s",
+				s.SetupIntent.PaymentMethod.ID,
+				s.SetupIntent.PaymentMethod.Customer,
+			)
+		}
+		fmt.Printf("customer %s already attached to %s, doing nothing\n", customerID, s.SetupIntent.PaymentMethod.ID)
+		return customerID, nil
+	}
+
+	fmt.Printf(
+		"finishing session with setupintent %s, customer %s, payment_method %s\n",
+		s.SetupIntent.ID,
+		customerID,
+		s.SetupIntent.PaymentMethod.ID,
+	)
+	err = attachPaymentMethodToCustomer(s.SetupIntent.PaymentMethod.ID, customerID)
+	if err != nil {
+		return "", err
+	}
+
+	return customerID, nil
 }
 
 // Idempotently fulfills the payment intent
@@ -378,6 +500,17 @@ func fulfillPaymentIntent(id string) (string, error) {
 	}
 
 	return url, nil
+}
+
+func attachPaymentMethodToCustomer(paymentMethod, customer string) error {
+	params := &stripe.PaymentMethodAttachParams{
+		Customer: stripe.String(customer),
+	}
+	_, err := paymentmethod.Attach(paymentMethod, params)
+	if err != nil {
+		return fmt.Errorf("error attaching %s to %s: %v", paymentMethod, customer, err)
+	}
+	return nil
 }
 
 func customerData(r *CustomerDataRequest) (CustomerData, error) {

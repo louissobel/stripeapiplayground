@@ -6,6 +6,7 @@ import CheckoutForm from './CheckoutForm'
 import OrderComplete from './OrderComplete'
 import ZinesTable from './ZinesTable'
 import SavedCardsList from './SavedCardsList'
+import TriggerCheckout from './TriggerCheckout'
 
 class Shop extends Component  {
 	constructor(props) {
@@ -53,6 +54,13 @@ class Shop extends Component  {
       this.setState({
         savingCard: true,
       })
+    }.bind(this))
+  }
+
+  saveCardUsingCheckout() {
+    this.createCheckoutSetupSession(function (session) {
+      debugger;
+      console.log(session)
     }.bind(this))
   }
 
@@ -194,6 +202,20 @@ class Shop extends Component  {
     }, callback)
   }
 
+  provideCheckoutSetupSession(callback) {
+    if (!this.props.customer) {
+      console.error("cannot create a setup mode checkout session without a customer")
+      return;
+    }
+
+    this.setState({
+      actionInProgress: 'creating checkout setup session',
+    })
+    this.doAPIPostRequest('/api/create_checkout_setup_session', {
+      customer: this.props.customer.id,
+    }, callback)
+  }
+
   setupSuccess(setupIntent) {
     this.savePaymentMethodToCustomerFromSetupIntent(setupIntent.id, function () {
       this.props.reload();
@@ -258,6 +280,13 @@ class Shop extends Component  {
                 <button onClick={this.saveCard.bind(this)}>
                   Save new card
                 </button>
+                or...
+                <Elements>
+                  <TriggerCheckout
+                    label="Save new card (using checkout)"
+                    sessionProvider={this.provideCheckoutSetupSession.bind(this)}
+                  />
+                </Elements>
               </div>
             }
 
