@@ -64,6 +64,13 @@ export function withLoading(WrappedComponent, url, fetchOptions) {
       }.bind(this))
     }
 
+    reload() {
+      this.setState({
+        loading: true,
+      })
+      this.getData()
+    }
+
     render() {
       if (this.state.loading) {
         return <Loading maxTicks={4} interval={250} />
@@ -75,7 +82,7 @@ export function withLoading(WrappedComponent, url, fetchOptions) {
             </div>
           )
         } else {
-          return <WrappedComponent data={this.state.data} {... this.props} />;
+          return <WrappedComponent reload={this.reload.bind(this)} data={this.state.data} {... this.props} />;
         }
       };
     }

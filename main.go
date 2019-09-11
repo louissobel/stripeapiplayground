@@ -31,6 +31,14 @@ type CancelPaymentIntentRequest struct {
 	ID string `json:"id"`
 }
 
+type CreateSetupIntentRequest struct {
+	CustomerID string `json:"customer"`
+}
+
+type SavePaymentMethodToCustomerFromSetupIntentRequest struct {
+	SetupIntentID string `json:"setup_intent"`
+}
+
 type FinalizePaymentIntentRequest struct {
 	ID string `json:"id"`
 }
@@ -134,13 +142,35 @@ func main() {
 	})
 
 	e.POST("/api/create_setup_intent", func(c echo.Context) error {
-		setupIntent, err := createSetupIntent()
+		r := new(CreateSetupIntentRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		setupIntent, err := createSetupIntent(r)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("created setup intent: %v\n", setupIntent)
 		return c.JSON(http.StatusOK, setupIntent)
 	})
+
+
+	e.POST("/api/save_payment_method_to_customer_from_setup_intent", func(c echo.Context) error {
+		r := new(SavePaymentMethodToCustomerFromSetupIntentRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		err = savePaymentMethodToCustomerFromSetupIntent(r)
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, nil)
+	})
+
 
 	e.GET("/api/customer_data", func(c echo.Context) error {
 		r := new(CustomerDataRequest)
@@ -259,9 +289,39 @@ func finalizePaymentIntent(r *FinalizePaymentIntentRequest) (string, error) {
 	return fulfillPaymentIntent(r.ID)
 }
 
-func createSetupIntent() (*stripe.SetupIntent, error) {
-	params := &stripe.SetupIntentParams{}
+func createSetupIntent(r *CreateSetupIntentRequest) (*stripe.SetupIntent, error) {
+	params := &stripe.SetupIntentParams{
+		Customer: stripe.String(r.CustomerID),
+	}
 	return setupintent.New(params)
+}
+
+func savePaymentMethodToCustomerFromSetupIntent(r *SavePaymentMethodToCustomerFromSetupIntentRequest) error {
+	si, err := setupintent.Get(r.SetupIntentID, nil)
+	if err != nil {
+		return fmt.Errorf("error geting SetupIntent: %v", err)
+	}
+
+	if si.Customer == nil {
+		return fmt.Errorf("SetupIntent %s has no customer", si.ID)
+	}
+	customerID := si.Customer.ID
+
+	if si.PaymentMethod == nil {
+		return fmt.Errorf("SetupIntent %s has no payment_method", si.ID)
+	}
+	paymentMethodID := si.PaymentMethod.ID
+
+	params := &stripe.PaymentMethodAttachParams{
+	  Customer: stripe.String(customerID),
+	}
+	_, err = paymentmethod.Attach(paymentMethodID, params)
+	if err != nil {
+		return fmt.Errorf("error attaching %s to %s: %v", paymentMethodID, customerID, err)
+	}
+
+	fmt.Printf("attached! customerid: %s, paymentMethodID: %s\n", customerID, paymentMethodID)
+	return nil
 }
 
 // Idempotently fulfills the payment intent

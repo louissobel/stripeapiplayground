@@ -17,6 +17,7 @@ function TestCardsTable() {
 			<tr><td>4000000000003055</td>	<td>optional</td>	<td>3D Secure is supported but not required on this card. 3D Secure authentication may still be performed, but is not required. Payments succeed whether 3D Secure is used or not.</td></tr>
 			<tr><td>4242424242424242</td>	<td>optional</td>	<td>3D Secure is supported for this card, but this card is not enrolled in 3D Secure. This means that if 3D Secure is invoked, the customer is not asked to authenticate. Payments succeed whether 3D Secure is invoked or not.</td></tr>
 			<tr><td>378282246310005</td>	<td>not_supported</td>	<td>3D Secure is not supported on this card and cannot be invoked.</td></tr>
+      <tr><td>4000002500003155</td> <td>required on setup</td> <td>This test card requires authentication for one-time payments. However, if you set up this card using the Setup Intents API and use the saved card for subsequent payments, no further authentication is needed.</td></tr>
 		</table>
 	)
 }
@@ -130,7 +131,9 @@ class CheckoutForm extends Component {
     var cardSetupPromise = this.props.stripe.handleCardSetup(
       this.props.setupIntent.clientSecret,
       this.state.cardElement,
-    )
+    ).then(function (result) {
+      return result.setupIntent
+    })
 
     this.finishCardPromise(cardSetupPromise)
   }

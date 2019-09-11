@@ -144,10 +144,17 @@ class Shop extends Component  {
   }
 
   createSetupIntent(callback) {
+    if (!this.props.customer) {
+      console.error("cannot create a setup intent without a customer!")
+      return;
+    }
+
     this.setState({
       intentActionInProgress: 'creating setup',
     })
-    this.doAPIPostRequest('/api/create_setup_intent', {}, function(data) {
+    this.doAPIPostRequest('/api/create_setup_intent', {
+      customer: this.props.customer.id,
+    }, function(data) {
       this.setState(
         {
           intentActionInProgress: null,
@@ -161,11 +168,19 @@ class Shop extends Component  {
     }.bind(this))
   }
 
-  setupSuccess(setupIntent) {
-    console.log(setupIntent)
+  savePaymentMethodToCustomerFromSetupIntent(id, callback) {
     this.setState({
-      savingCard: false,
+      intentActionInProgress: 'saving payment method to customer from setup',
     })
+    this.doAPIPostRequest('/api/save_payment_method_to_customer_from_setup_intent', {
+      setup_intent: id,
+    }, callback)
+  }
+
+  setupSuccess(setupIntent) {
+    this.savePaymentMethodToCustomerFromSetupIntent(setupIntent.id, function () {
+      this.props.reload();
+    }.bind(this))
   }
 
   cancelSetup() {
