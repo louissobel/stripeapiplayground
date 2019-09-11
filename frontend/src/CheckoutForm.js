@@ -1,9 +1,12 @@
 import React, { Component } from 'react';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
-import Loading from './Loading';
-import ZinesTable from './ZinesTable'
 import {FormattedDate, FormattedTime} from 'react-intl'
+
+import Loading from './Loading';
+import ZinesTable from './ZinesTable';
+import SavedCardsList from './SavedCardsList';
+
 
 function TestCardsTable() {
 	return (
@@ -16,41 +19,6 @@ function TestCardsTable() {
 			<tr><td>378282246310005</td>	<td>not_supported</td>	<td>3D Secure is not supported on this card and cannot be invoked.</td></tr>
 		</table>
 	)
-}
-
-function SavedCardsList({ customer, showUse, onUse}) {
-  if (customer.card_payment_methods.length == 0) {
-    return <h4>No saved cards</h4>
-  } else {
-    var cards = []
-    customer.card_payment_methods.forEach((c) => {
-      cards.push(
-        <li>
-          <code>{c.id}</code> — {c.card.brand} — {c.card.last4} — 
-          <FormattedDate
-            value={new Date(c.created * 1000)}
-          /> at <FormattedTime
-            value={new Date(c.created * 1000)}
-          />
-          {showUse &&
-            <button className="inline-action-button" onClick={function() {
-              onUse(c.id)
-            }}>
-              USE
-            </button>
-          }
-        </li>
-      )
-    })
-    return (
-      <div>
-        <h4>Saved Cards:</h4>
-        <ul>
-          {cards}
-        </ul>
-      </div>
-    )
-  }
 }
 
 const HIDE_SUBMIT_AFTER_INTERVAL = 250;
@@ -73,7 +41,6 @@ class CheckoutForm extends Component {
     	submitStarted: false,
     	submitGoingLong: false,
     	submitGoingLongTimeout: null,
-
     }
   }
 
@@ -114,7 +81,7 @@ class CheckoutForm extends Component {
     })
   }
 
-  finishCardPaymentPromise(cpp) {
+  finishCardPromise(cpp) {
     cpp.then(function(result) {
       if (this.state.submitGoingLongTimeout) {
         clearTimeout(this.state.submitGoingLongTimeout)
@@ -132,7 +99,7 @@ class CheckoutForm extends Component {
         this.setState({
           complete: true,
         })
-        this.props.onComplete()
+        this.props.onComplete(result)
       }
     }.bind(this))
   }
@@ -140,6 +107,14 @@ class CheckoutForm extends Component {
   onSubmit(ev) {
     this.startSubmit()
 
+    if (this.props.saveCardOnly) {
+      this.setupCard()
+    } else {
+      this.useCard();
+    }
+  }
+
+  useCard() {
 		var cardPaymentPromise = this.props.stripe.handleCardPayment(
 			this.props.paymentIntent.clientSecret,
 			this.state.cardElement,
@@ -148,8 +123,17 @@ class CheckoutForm extends Component {
       }
 		)
 
-    this.finishCardPaymentPromise(cardPaymentPromise)
+    this.finishCardPromise(cardPaymentPromise)
 	}
+
+  setupCard() {
+    var cardSetupPromise = this.props.stripe.handleCardSetup(
+      this.props.setupIntent.clientSecret,
+      this.state.cardElement,
+    )
+
+    this.finishCardPromise(cardSetupPromise)
+  }
 
   onReuseCard(id) {
     this.startSubmit()
@@ -161,7 +145,7 @@ class CheckoutForm extends Component {
       }
     )
 
-    this.finishCardPaymentPromise(cardPaymentPromise)
+    this.finishCardPromise(cardPaymentPromise)
   }
 
   handleSaveCardChange(event) {
@@ -175,22 +159,32 @@ class CheckoutForm extends Component {
 	render() {
 		return (
 			<div className="checkout-form">
-        <ZinesTable
-          zines={[this.props.zine]}
-          action="Cancel"
-          onClick={this.props.onCancel}
-        />
+        {!this.props.saveCardOnly &&
+          <ZinesTable
+            zines={[this.props.zine]}
+            action="Cancel"
+            onClick={this.props.onCancel}
+          />
+        }
 
-        <div>
-				  Payment Intent: <code>{this.props.paymentIntent.id}</code>
-        </div>
+        {this.props.paymentIntent &&
+          <div>
+  				  Payment Intent: <code>{this.props.paymentIntent.id}</code>
+          </div>
+        }
+
+        {this.props.setupIntent &&
+          <div>
+            Setup Intent: <code>{this.props.setupIntent.id}</code>
+          </div>
+        }
 
 				{this.state.error &&
 			    <div className="alert-danger">
             {this.state.error.toString()}
           </div>
         }
-        {this.props.customer &&
+        {(this.props.customer && !this.props.saveCardOnly) &&
           <SavedCardsList
             customer={this.props.customer}
             showUse={this.showSubmit()}
@@ -200,7 +194,7 @@ class CheckoutForm extends Component {
 
 				<CardElement onReady={this.stashElement.bind(this)} />
 
-        {this.props.customer &&
+        {(this.props.customer && !this.props.saveCardOnly) &&
           <div>
             <input
               type="checkbox"
@@ -213,7 +207,9 @@ class CheckoutForm extends Component {
 
 				<div className="checkout-submit-container" >
 					{this.showSubmit() &&
-		      	<button className="action-button" onClick={this.onSubmit.bind(this)}>Send</button>
+		      	<button className="action-button" onClick={this.onSubmit.bind(this)}>
+              {this.props.saveCardOnly ? "Save" : "Submit"}
+            </button>
 		      }
 
 		      {this.state.submitGoingLong && 

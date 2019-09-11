@@ -5,6 +5,7 @@ import Loading, {withLoading} from './Loading';
 import CheckoutForm from './CheckoutForm'
 import OrderComplete from './OrderComplete'
 import ZinesTable from './ZinesTable'
+import SavedCardsList from './SavedCardsList'
 
 class Shop extends Component  {
 	constructor(props) {
@@ -17,7 +18,7 @@ class Shop extends Component  {
       selectedItem: null,
 
       paymentIntent: null,
-      paymentIntentActionInProgress: null,
+      intentActionInProgress: null,
       fulfillmentURL: null,
 
       error: null,
@@ -47,131 +48,130 @@ class Shop extends Component  {
     }.bind(this));
   }
 
-	createPaymentIntent(zineID, callback) {
-		this.setState({
-			paymentIntentActionInProgress: 'creating',
-		})
-		var params = {
-			zine: zineID,
-		}
-    if (this.props.customer) {
-      params.customer = this.props.customer.id
-    }
+  saveCard() {
+    this.createSetupIntent(function () {
+      this.setState({
+        savingCard: true,
+      })
+    }.bind(this))
+  }
 
-		fetch('/api/create_payment_intent', {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-		})
-		.then(function(response) {
-		  if (!response.ok) {
-          throw Error(response.statusText);
-      }
-      return response;
-		})
-		.then(function(response) {
-			return response.json()
-		})
-		.then(function(data) {
-			this.setState(
-				{
-					paymentIntentActionInProgress: null,
-					paymentIntent: {
-						id: data.id,
-						clientSecret: data.client_secret,
-					}
-				},
-				callback,
-			)
-		}.bind(this))
-		.catch(function(err) {
-			this.setState({
-				error: err,
-			})
-		}.bind(this))
-	}
-
-	cancelPaymentIntent(id, callback) {
-		this.setState({
-			paymentIntentActionInProgress: 'canceling',
-		})
-		var params = {
-			id: id,
-		}
-		fetch('/api/cancel_payment_intent', {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-		})
-		.then(function(response) {
-		  if (!response.ok) {
-          throw Error(response.statusText);
-      }
-      return response;
-		})
-		.then(function(response) {
-			return response.json()
-		})
-		.then(function(data) {
-			this.setState(
-				{
-					paymentIntentActionInProgress: null,
-					paymentIntent: null,
-				},
-				callback,
-			)
-		}.bind(this))
-		.catch(function(err) {
-			this.setState({
-				error: err,
-			})
-		}.bind(this))
-	}
-
-  finalizePaymentIntent(id, callback) {
-    this.setState({
-      paymentIntentActionInProgress: 'finalizing',
-    })
-    var params = {
-      id: id,
-    }
-    fetch('/api/finalize_payment_intent', {
+  doAPIPostRequest(url, params, callback) {
+    return fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
     })
     .then(function(response) {
       if (!response.ok) {
-          throw Error(response.statusText);
+        throw Error(response.statusText);
       }
-      return response;
+      return response
     })
     .then(function(response) {
       return response.json()
     })
     .then(function(data) {
-      this.setState(
-        {
-          paymentIntentActionInProgress: null,
-          fulfillmentURL: data.fulfillment_url,
-        },
-        callback,
-      )
-    }.bind(this))
+      callback(data);
+    })
     .catch(function(err) {
       this.setState({
         error: err,
       })
     }.bind(this))
+  }
+
+	createPaymentIntent(zineID, callback) {
+    var params = {
+      zine: zineID,
+    }
+    if (this.props.customer) {
+      params.customer = this.props.customer.id
+    }
+
+    this.setState({
+      intentActionInProgress: 'creating payment',
+    })
+    this.doAPIPostRequest('/api/create_payment_intent', params, function(data) {
+      this.setState(
+        {
+          intentActionInProgress: null,
+          paymentIntent: {
+            id: data.id,
+            clientSecret: data.client_secret,
+          }
+        },
+        callback,
+      )
+    }.bind(this))
+	}
+
+	cancelPaymentIntent(id, callback) {
+		this.setState({
+			intentActionInProgress: 'canceling payment',
+		})
+    this.doAPIPostRequest('/api/cancel_payment_intent', {
+      id: id,
+    }, function(data) {
+      this.setState(
+        {
+          intentActionInProgress: null,
+          paymentIntent: null,
+        },
+        callback,
+      )
+    }.bind(this))
+	}
+
+  finalizePaymentIntent(id, callback) {
+    this.setState({
+      intentActionInProgress: 'finalizing payment',
+    })
+    this.doAPIPostRequest('/api/finalize_payment_intent', {
+      id: id,
+    }, function(data) {
+      this.setState(
+        {
+          intentActionInProgress: null,
+          fulfillmentURL: data.fulfillment_url,
+        },
+        callback,
+      )
+    }.bind(this))
+  }
+
+  createSetupIntent(callback) {
+    this.setState({
+      intentActionInProgress: 'creating setup',
+    })
+    this.doAPIPostRequest('/api/create_setup_intent', {}, function(data) {
+      this.setState(
+        {
+          intentActionInProgress: null,
+          setupIntent: {
+            id: data.id,
+            clientSecret: data.client_secret,
+          }
+        },
+        callback,
+      )
+    }.bind(this))
+  }
+
+  setupSuccess(setupIntent) {
+    console.log(setupIntent)
+    this.setState({
+      savingCard: false,
+    })
+  }
+
+  cancelSetup() {
+    this.setState({
+      savingCard: false,
+    })
   }
 
 	checkoutSuccess() {
@@ -186,16 +186,16 @@ class Shop extends Component  {
   	if (this.state.error != null) {
       return (
       	<div class="alert-danger">
-      		<div>{this.state.paymentIntentActionInProgress} payment intent</div>
+      		<div>{this.state.intentActionInProgress} intent</div>
 	        {this.state.error.toString()}
 	      </div>
 	    )
   	}
 
-  	if (this.state.paymentIntentActionInProgress !== null) {
+  	if (this.state.intentActionInProgress !== null) {
   		return (
   			<div>
-  				<span>{this.state.paymentIntentActionInProgress} payment intent</span>
+  				<span>{this.state.intentActionInProgress} intent</span>
   				<Loading maxTicks={4} interval={250} />
   			</div>
   		)
@@ -211,8 +211,22 @@ class Shop extends Component  {
 
 	  return (
 	    <div>
-	    	{this.state.selectedItem === null &&
+	    	{(this.state.selectedItem === null && !this.state.savingCard) &&
 		    	<div>
+            {this.props.customer &&
+              <div>
+                <SavedCardsList
+                  customer={this.props.customer}
+                  showUse={false}
+                  onUse={null}
+                />
+
+                <button onClick={this.saveCard.bind(this)}>
+                  Save new card
+                </button>
+              </div>
+            }
+
 		    		<h4>Things to buy:</h4>
 		    		<ZinesTable
               zines={this.props.data}
@@ -221,6 +235,20 @@ class Shop extends Component  {
             />
 		    	</div>
 		    }
+
+        {this.state.savingCard &&
+          <div>
+            <Elements>
+              <CheckoutForm
+                saveCardOnly={true}
+                setupIntent={this.state.setupIntent}
+                onComplete={this.setupSuccess.bind(this)}
+                onCancel={this.cancelSetup.bind(this)}
+                customer={this.props.customer}
+              />
+            </Elements>
+          </div>
+        }
 
 	    	{this.state.selectedItem !== null &&
 		      	<div>

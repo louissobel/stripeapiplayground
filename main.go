@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/customer"
 	"github.com/stripe/stripe-go/paymentintent"
 	"github.com/stripe/stripe-go/paymentmethod"
+	"github.com/stripe/stripe-go/setupintent"
 )
 
 type CreateUserRequest struct {
@@ -132,6 +133,15 @@ func main() {
 		})
 	})
 
+	e.POST("/api/create_setup_intent", func(c echo.Context) error {
+		setupIntent, err := createSetupIntent()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("created setup intent: %v\n", setupIntent)
+		return c.JSON(http.StatusOK, setupIntent)
+	})
+
 	e.GET("/api/customer_data", func(c echo.Context) error {
 		r := new(CustomerDataRequest)
 		err := c.Bind(r)
@@ -247,6 +257,11 @@ func cancelPaymentIntent(r *CancelPaymentIntentRequest) error {
 
 func finalizePaymentIntent(r *FinalizePaymentIntentRequest) (string, error) {
 	return fulfillPaymentIntent(r.ID)
+}
+
+func createSetupIntent() (*stripe.SetupIntent, error) {
+	params := &stripe.SetupIntentParams{}
+	return setupintent.New(params)
 }
 
 // Idempotently fulfills the payment intent
