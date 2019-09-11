@@ -1,4 +1,4 @@
-Demo App Integration Into PaymentIntents API
+# Personal Integration For Playing With Stripe PaymentIntents / SetupIntents APIs & Checkout
 
 To run:
  - put `.env` file into `frontend` with:
