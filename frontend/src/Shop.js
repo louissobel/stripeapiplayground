@@ -18,7 +18,7 @@ class Shop extends Component  {
       selectedItem: null,
 
       paymentIntent: null,
-      intentActionInProgress: null,
+      actionInProgress: null,
       fulfillmentURL: null,
 
       error: null,
@@ -93,12 +93,12 @@ class Shop extends Component  {
     }
 
     this.setState({
-      intentActionInProgress: 'creating payment',
+      actionInProgress: 'creating payment intent',
     })
     this.doAPIPostRequest('/api/create_payment_intent', params, function(data) {
       this.setState(
         {
-          intentActionInProgress: null,
+          actionInProgress: null,
           paymentIntent: {
             id: data.id,
             clientSecret: data.client_secret,
@@ -111,14 +111,14 @@ class Shop extends Component  {
 
 	cancelPaymentIntent(id, callback) {
 		this.setState({
-			intentActionInProgress: 'canceling payment',
+			actionInProgress: 'canceling payment intent',
 		})
     this.doAPIPostRequest('/api/cancel_payment_intent', {
       id: id,
     }, function(data) {
       this.setState(
         {
-          intentActionInProgress: null,
+          actionInProgress: null,
           paymentIntent: null,
         },
         callback,
@@ -126,16 +126,33 @@ class Shop extends Component  {
     }.bind(this))
 	}
 
+  cancelSetupIntent(id, callback) {
+    this.setState({
+      actionInProgress: 'canceling setup intent',
+    })
+    this.doAPIPostRequest('/api/cancel_setup_intent', {
+      id: id,
+    }, function(data) {
+      this.setState(
+        {
+          actionInProgress: null,
+          setupIntent: null,
+        },
+        callback,
+      )
+    }.bind(this))
+  }
+
   finalizePaymentIntent(id, callback) {
     this.setState({
-      intentActionInProgress: 'finalizing payment',
+      actionInProgress: 'finalizing payment intent',
     })
     this.doAPIPostRequest('/api/finalize_payment_intent', {
       id: id,
     }, function(data) {
       this.setState(
         {
-          intentActionInProgress: null,
+          actionInProgress: null,
           fulfillmentURL: data.fulfillment_url,
         },
         callback,
@@ -150,14 +167,14 @@ class Shop extends Component  {
     }
 
     this.setState({
-      intentActionInProgress: 'creating setup',
+      actionInProgress: 'creating setup intent',
     })
     this.doAPIPostRequest('/api/create_setup_intent', {
       customer: this.props.customer.id,
     }, function(data) {
       this.setState(
         {
-          intentActionInProgress: null,
+          actionInProgress: null,
           setupIntent: {
             id: data.id,
             clientSecret: data.client_secret,
@@ -170,7 +187,7 @@ class Shop extends Component  {
 
   savePaymentMethodToCustomerFromSetupIntent(id, callback) {
     this.setState({
-      intentActionInProgress: 'saving payment method to customer from setup',
+      actionInProgress: 'saving payment method to customer from setup intent',
     })
     this.doAPIPostRequest('/api/save_payment_method_to_customer_from_setup_intent', {
       setup_intent: id,
@@ -186,7 +203,9 @@ class Shop extends Component  {
   cancelSetup() {
     this.setState({
       savingCard: false,
-    })
+    }, function() {
+      this.cancelSetupIntent(this.state.setupIntent.id, function() {})
+    }.bind(this));
   }
 
 	checkoutSuccess() {
@@ -201,16 +220,16 @@ class Shop extends Component  {
   	if (this.state.error != null) {
       return (
       	<div class="alert-danger">
-      		<div>{this.state.intentActionInProgress} intent</div>
+      		<div>{this.state.actionInProgress} intent</div>
 	        {this.state.error.toString()}
 	      </div>
 	    )
   	}
 
-  	if (this.state.intentActionInProgress !== null) {
+  	if (this.state.actionInProgress !== null) {
   		return (
   			<div>
-  				<span>{this.state.intentActionInProgress} intent</span>
+  				<span>{this.state.actionInProgress}</span>
   				<Loading maxTicks={4} interval={250} />
   			</div>
   		)

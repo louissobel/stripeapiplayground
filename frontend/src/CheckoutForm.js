@@ -169,6 +169,13 @@ class CheckoutForm extends Component {
             onClick={this.props.onCancel}
           />
         }
+        {this.props.saveCardOnly &&
+          <button
+            onClick={this.props.onCancel}
+          >
+            Cancel
+          </button>
+        }
 
         {this.props.paymentIntent &&
           <div>

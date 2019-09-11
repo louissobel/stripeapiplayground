@@ -35,6 +35,10 @@ type CreateSetupIntentRequest struct {
 	CustomerID string `json:"customer"`
 }
 
+type CancelSetupIntentRequest struct {
+	ID string `json:"id"`
+}
+
 type SavePaymentMethodToCustomerFromSetupIntentRequest struct {
 	SetupIntentID string `json:"setup_intent"`
 }
@@ -154,6 +158,21 @@ func main() {
 		}
 		fmt.Printf("created setup intent: %v\n", setupIntent)
 		return c.JSON(http.StatusOK, setupIntent)
+	})
+
+	e.POST("/api/cancel_setup_intent", func(c echo.Context) error {
+		r := new(CancelSetupIntentRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		err = cancelSetupIntent(r)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("canceled setupintent intent: %v\n", r)
+		return c.JSON(http.StatusOK, map[string]string{"id": r.ID})
 	})
 
 
@@ -282,7 +301,6 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 func cancelPaymentIntent(r *CancelPaymentIntentRequest) error {
 	_, err := paymentintent.Cancel(r.ID, nil)
 	return err
-
 }
 
 func finalizePaymentIntent(r *FinalizePaymentIntentRequest) (string, error) {
@@ -294,6 +312,12 @@ func createSetupIntent(r *CreateSetupIntentRequest) (*stripe.SetupIntent, error)
 		Customer: stripe.String(r.CustomerID),
 	}
 	return setupintent.New(params)
+}
+
+func cancelSetupIntent(r *CancelSetupIntentRequest) error {
+	_, err := setupintent.Cancel(r.ID, nil)
+	return err
+
 }
 
 func savePaymentMethodToCustomerFromSetupIntent(r *SavePaymentMethodToCustomerFromSetupIntentRequest) error {
