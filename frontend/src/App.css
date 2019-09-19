@@ -71,3 +71,8 @@
 .zine-icon {
   font-size: 2em;
 }
+
+.payment-method-switcher {
+  padding: 5px;
+  border: 1px solid;
+}

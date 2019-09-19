@@ -1,11 +1,12 @@
 import React, { Component } from 'react';
-import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
+import {CardElement, injectStripe, Elements, StripeProvider, IdealBankElement} from 'react-stripe-elements';
 
 import {FormattedDate, FormattedTime} from 'react-intl'
 
 import Loading from './Loading';
 import ZinesTable from './ZinesTable';
 import SavedCardsList from './SavedCardsList';
+import TabSwitcher from './TabSwitcher';
 
 
 function TestCardsTable() {
@@ -32,6 +33,7 @@ class CheckoutForm extends Component {
     this.state = {
     	error: null,
     	cardElement: null,
+      idealElement: null,
     	showTestCards: false,
 
       saveCard: false,
@@ -42,13 +44,21 @@ class CheckoutForm extends Component {
     	submitStarted: false,
     	submitGoingLong: false,
     	submitGoingLongTimeout: null,
+
+      selectedPaymentMethod: 'card',
     }
   }
 
-  stashElement(e) {
+  stashCardElement(e) {
   	this.setState({
   		cardElement: e,
   	})
+  }
+
+  stashIdealElement(e) {
+    this.setState({
+      idealElement: e,
+    })
   }
 
   showSubmit() {
@@ -108,10 +118,16 @@ class CheckoutForm extends Component {
   onSubmit(ev) {
     this.startSubmit()
 
-    if (this.props.saveCardOnly) {
-      this.setupCard()
+    if (this.state.selectedPaymentMethod == 'card') {
+      if (this.props.saveCardOnly) {
+        this.setupCard()
+      } else {
+        this.useCard();
+      }
+    } else if (this.state.selectedPaymentMethod == 'ideal') {
+      this.useIdeal();
     } else {
-      this.useCard();
+      throw new Error("unknown payment method" + this.state.selectedPaymentMethod)
     }
   }
 
@@ -151,11 +167,21 @@ class CheckoutForm extends Component {
     this.finishCardPromise(cardPaymentPromise)
   }
 
+  useIdeal() {
+    this.props.stripe.handleIdealPayment(this.state.idealElement);
+  }
+
   handleSaveCardChange(event) {
     //debugger;
     const target = event.target;
     this.setState({
       saveCard: target.checked,
+    })
+  }
+
+  handlePaymentMethodChange(paymentMethod) {
+    this.setState({
+      selectedPaymentMethod: paymentMethod,
     })
   }
 
@@ -202,7 +228,24 @@ class CheckoutForm extends Component {
           />
         }
 
-				<CardElement onReady={this.stashElement.bind(this)} />
+        <div class="payment-method-switcher">
+          <TabSwitcher
+            disabled={this.state.submitStarted}
+            tabs={[
+              {
+                name: 'card',
+                value: <CardElement onReady={this.stashCardElement.bind(this)} />,
+              },
+              {
+                name: 'ideal',
+                value: <IdealBankElement onReady={this.stashIdealElement.bind(this)} />,
+                hide: this.props.saveCardOnly,
+              },
+            ]}
+            selected={this.state.selectedPaymentMethod}
+            onChange={this.handlePaymentMethodChange.bind(this)}
+          />
+        </div>
 
         {(this.props.customer && !this.props.saveCardOnly) &&
           <div>

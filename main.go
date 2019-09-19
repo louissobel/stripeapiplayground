@@ -327,6 +327,7 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		TransferData: &stripe.PaymentIntentTransferDataParams{
 			Destination: stripe.String(zine.Account),
 		},
+		OnBehalfOf:           stripe.String(zine.Account),
 		ApplicationFeeAmount: stripe.Int64(int64(computeApplicationFeeAmount(zine.PriceAmount))),
 		Params: stripe.Params{
 			Metadata: map[string]string{

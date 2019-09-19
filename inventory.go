@@ -34,7 +34,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   504,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
-			Account:       "acct_1EO2B2A6awGcDSWX",
+			Account:       "acct_1FKPpsDWQf2hnYeb",
 		},
 		{
 			Id:            "2",
@@ -44,7 +44,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   503,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
-			Account:       "acct_1EO2B2A6awGcDSWX",
+			Account:       "acct_1FKPpsDWQf2hnYeb",
 		},
 		{
 			Id:            "3",
@@ -54,7 +54,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   502,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
-			Account:       "acct_1EO2B2A6awGcDSWX",
+			Account:       "acct_1FKPpsDWQf2hnYeb",
 		},
 		{
 			Id:            "4",
@@ -64,7 +64,7 @@ func LoadZines() ([]Zine, error) {
 			PriceAmount:   100,
 			PriceCurrency: "eur",
 			Icon:          "🌧",
-			Account:       "acct_1EO2B2A6awGcDSWX",
+			Account:       "acct_1FKPpsDWQf2hnYeb",
 		},
 	}
 
