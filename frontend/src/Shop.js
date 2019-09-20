@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import queryString from 'query-string';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
 
 import Loading, {withLoading} from './Loading';
@@ -24,6 +25,8 @@ class Shop extends Component  {
 
       error: null,
       checkoutDone: false,
+
+      finishingRedirect: false,
     };
   }
 
@@ -59,7 +62,6 @@ class Shop extends Component  {
 
   saveCardUsingCheckout() {
     this.createCheckoutSetupSession(function (session) {
-      debugger;
       console.log(session)
     }.bind(this))
   }
@@ -116,6 +118,10 @@ class Shop extends Component  {
       )
     }.bind(this))
 	}
+
+  loadPaymentIntent(id, callback) {
+    this.doAPIPostRequest('/api/load_payment_intent', {id: id}, callback)
+  }
 
 	cancelPaymentIntent(id, callback) {
 		this.setState({
@@ -238,7 +244,43 @@ class Shop extends Component  {
     }.bind(this))
 	}
 
+  finishRedirect(paymentIntentID) {
+    this.setState({
+      finishingRedirect: true,
+      actionInProgress: "finishing redirect"
+    }, function() {
+      this.loadPaymentIntent(paymentIntentID, function(paymentIntent) {
+        this.setState({
+          paymentIntent: {
+            id: paymentIntent.id,
+            clientSecret: paymentIntent.client_secret,
+          },
+          selectedItem: paymentIntent.metadata.zine,
+        }, function () {
+          if (paymentIntent.status == "succeeded") {
+            this.finalizePaymentIntent(this.state.paymentIntent.id, function() {
+              this.setState({
+                checkoutDone: true,
+              })
+            }.bind(this))
+          } else {
+            this.setState({
+              redirectError: paymentIntent.last_payment_error.message,
+              actionInProgress: null,
+            })
+          }
+        }.bind(this))
+      }.bind(this))
+    })
+  }
+
   render() {
+    const query = queryString.parse(this.props.location.search);
+    if (query.finishingRedirect && !this.state.finishingRedirect) {
+      this.finishRedirect(query.payment_intent)
+      return ""
+    }
+
   	if (this.state.error != null) {
       return (
       	<div class="alert-danger">
@@ -322,6 +364,7 @@ class Shop extends Component  {
 			      			onComplete={this.checkoutSuccess.bind(this)}
                   onCancel={this.cancelOrder.bind(this)}
                   customer={this.props.customer}
+                  redirectError={this.state.redirectError}
 			      		/>
 		        	</Elements>
 	        	</div>

@@ -11,7 +11,7 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <StripeProvider apiKey={process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY} betas={['card_payment_method_beta_1']}>
+        <StripeProvider apiKey={process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY} betas={['card_payment_method_beta_1', 'ideal_pm_beta_1']}>
           <IntlProvider>
             <Router>
               <div className="App-header">
@@ -91,10 +91,10 @@ class LogIn extends Component {
   }
 }
 
-function LoggedIn({ match }) {
+function LoggedIn({ match, location }) {
   const ShopWithCustomer = withLoading(function(props) {
     var {data, ...rest} = props;
-    return <Shop customer={data} {...rest} />
+    return <Shop location={location} customer={data} {...rest} />
   }, `/api/customer_data?id=${match.params.id}`)
 
   return (

@@ -28,6 +28,10 @@ type CreatePaymentIntentRequest struct {
 	CustomerID string `json:"customer"`
 }
 
+type LoadPaymentIntentRequest struct {
+	ID string `json:"id"`
+}
+
 type CancelPaymentIntentRequest struct {
 	ID string `json:"id"`
 }
@@ -122,6 +126,21 @@ func main() {
 			return err
 		}
 		fmt.Printf("created payment intent: %v\n", paymentIntent)
+		return c.JSON(http.StatusOK, paymentIntent)
+	})
+
+	e.POST("/api/load_payment_intent", func(c echo.Context) error {
+		r := new(LoadPaymentIntentRequest)
+		err := c.Bind(r)
+		if err != nil {
+			return err
+		}
+
+		paymentIntent, err := loadPaymentIntent(r)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("loaded payment intent: %v\n", paymentIntent)
 		return c.JSON(http.StatusOK, paymentIntent)
 	})
 
@@ -322,12 +341,15 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		return nil, fmt.Errorf("no Zine found with id %s", r.ZineID)
 	}
 	params := &stripe.PaymentIntentParams{
+		PaymentMethodTypes: stripe.StringSlice([]string{
+			"card",
+			"ideal",
+		}),
 		Amount:   stripe.Int64(int64(zine.PriceAmount)),
 		Currency: stripe.String(zine.PriceCurrency),
 		TransferData: &stripe.PaymentIntentTransferDataParams{
 			Destination: stripe.String(zine.Account),
 		},
-		OnBehalfOf:           stripe.String(zine.Account),
 		ApplicationFeeAmount: stripe.Int64(int64(computeApplicationFeeAmount(zine.PriceAmount))),
 		Params: stripe.Params{
 			Metadata: map[string]string{
@@ -339,6 +361,10 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		params.Customer = stripe.String(r.CustomerID)
 	}
 	return paymentintent.New(params)
+}
+
+func loadPaymentIntent(r *LoadPaymentIntentRequest) (*stripe.PaymentIntent, error) {
+	return paymentintent.Get(r.ID, nil)
 }
 
 func cancelPaymentIntent(r *CancelPaymentIntentRequest) error {

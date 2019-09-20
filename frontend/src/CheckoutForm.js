@@ -31,7 +31,7 @@ class CheckoutForm extends Component {
 	constructor(props) {
     super(props);
     this.state = {
-    	error: null,
+    	error: props.redirectError || null,
     	cardElement: null,
       idealElement: null,
     	showTestCards: false,
@@ -62,7 +62,12 @@ class CheckoutForm extends Component {
   }
 
   showSubmit() {
-  	return this.state.cardElement !== null && !this.state.submitGoingLong && !this.state.complete
+    var elementReady = (
+      this.state.selectedPaymentMethod == 'card' && this.state.cardElement !== null
+      ||
+      this.state.selectedPaymentMethod == 'ideal' && this.state.idealElement !== null
+    )
+  	return elementReady && !this.state.submitGoingLong && !this.state.complete
   }
 
   setShowTestCardsTrue() {
@@ -168,11 +173,20 @@ class CheckoutForm extends Component {
   }
 
   useIdeal() {
-    this.props.stripe.handleIdealPayment(this.state.idealElement);
+    var returnPath = (this.props.customer ? '/logged_in_as/' + this.props.customer.id : '/shop') + '?finishingRedirect=true'
+    var returnURL = 'http://localhost:3000' + returnPath 
+    var idealPaymentPromise = this.props.stripe.handleIdealPayment(
+      this.props.paymentIntent.clientSecret,
+      this.state.idealElement,
+      {
+        return_url: returnURL,
+      }
+    );
+
+    this.finishCardPromise(idealPaymentPromise)
   }
 
   handleSaveCardChange(event) {
-    //debugger;
     const target = event.target;
     this.setState({
       saveCard: target.checked,
@@ -247,7 +261,7 @@ class CheckoutForm extends Component {
           />
         </div>
 
-        {(this.props.customer && !this.props.saveCardOnly) &&
+        {(this.props.customer && !this.props.saveCardOnly && this.state.selectedPaymentMethod == 'card') &&
           <div>
             <input
               type="checkbox"
