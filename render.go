@@ -9,9 +9,12 @@ import (
 func RenderPDF(content string) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A5", "")
 	pdf.AddPage()
-	pdf.SetFont("Arial", "B", 10)
+	pdf.SetFont("Arial", "B", 14)
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
 	pdf.Cell(40, 10, tr(content))
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.Cell(0, 60, tr("Not So Grand"))
 
 	var o bytes.Buffer
 	err := pdf.Output(&o)

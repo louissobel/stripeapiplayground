@@ -70,8 +70,8 @@ type CustomerDataRequest struct {
 }
 
 type CustomerData struct {
-	ID                 string                  `json:"id"`
-	CardPaymentMethods []*stripe.PaymentMethod `json:"card_payment_methods"`
+	ID             string                  `json:"id"`
+	PaymentMethods []*stripe.PaymentMethod `json:"payment_methods"`
 }
 
 const BASE_URL = "http://localhost:3000"
@@ -341,13 +341,9 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		return nil, fmt.Errorf("no Zine found with id %s", r.ZineID)
 	}
 	params := &stripe.PaymentIntentParams{
-		PaymentMethodTypes: stripe.StringSlice([]string{
-			"card",
-			"ideal",
-			"sepa_debit",
-		}),
-		Amount:   stripe.Int64(int64(zine.PriceAmount)),
-		Currency: stripe.String(zine.PriceCurrency),
+		PaymentMethodTypes: stripe.StringSlice(selectPaymentMethodTypes(zine.PriceCurrency)),
+		Amount:             stripe.Int64(int64(zine.PriceAmount)),
+		Currency:           stripe.String(zine.PriceCurrency),
 		TransferData: &stripe.PaymentIntentTransferDataParams{
 			Destination: stripe.String(zine.Account),
 		},
@@ -362,6 +358,17 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		params.Customer = stripe.String(r.CustomerID)
 	}
 	return paymentintent.New(params)
+}
+
+func selectPaymentMethodTypes(currency string) []string {
+	switch currency {
+	case "eur":
+		return []string{"card", "ideal", "sepa_debit"}
+	case "gbp":
+		return []string{"card", "bacs_debit"}
+	default:
+		return []string{"card"}
+	}
 }
 
 func loadPaymentIntent(r *LoadPaymentIntentRequest) (*stripe.PaymentIntent, error) {
@@ -425,6 +432,7 @@ func createCheckoutSetupSession(r *CreateCheckoutSetupSessionRequest) (*stripe.C
 		CancelURL: stripe.String("http://localhost:3000/canceled_sad"),
 		PaymentMethodTypes: stripe.StringSlice([]string{
 			"card",
+			"bacs_debit",
 		}),
 		Mode: stripe.String(string(stripe.CheckoutSessionModeSetup)),
 		SetupIntentData: &stripe.CheckoutSessionSetupIntentDataParams{
@@ -514,7 +522,7 @@ func maybeFulfillPaymentIntent(id string) (*stripe.PaymentIntent, bool, error) {
 			id,
 			pi.Status,
 		)
-		return nil, false, nil
+		return pi, false, nil
 	}
 
 	if pi.Metadata["fulfillment_url"] != "" {
@@ -549,20 +557,27 @@ func attachPaymentMethodToCustomer(paymentMethod, customer string) error {
 }
 
 func customerData(r *CustomerDataRequest) (CustomerData, error) {
-	// Get card payment methods
+	// Get saved payment methods
 	pms := []*stripe.PaymentMethod{}
 
-	params := &stripe.PaymentMethodListParams{}
-	params.Filters.AddFilter("customer", "", r.ID)
-	params.Filters.AddFilter("type", "", "card")
-	i := paymentmethod.List(params)
-	for i.Next() {
-		pms = append(pms, i.PaymentMethod())
+	types := []string{"card", "bacs_debit"}
+	for _, t := range types {
+		params := &stripe.PaymentMethodListParams{}
+		params.Filters.AddFilter("customer", "", r.ID)
+		params.Filters.AddFilter("type", "", t)
+		i := paymentmethod.List(params)
+		for i.Next() {
+			pms = append(pms, i.PaymentMethod())
+		}
+		err := i.Err()
+		if err != nil {
+			return CustomerData{}, nil
+		}
 	}
 
 	return CustomerData{
-		ID:                 r.ID,
-		CardPaymentMethods: pms,
+		ID:             r.ID,
+		PaymentMethods: pms,
 	}, nil
 }
 

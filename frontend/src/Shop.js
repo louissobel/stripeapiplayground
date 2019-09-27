@@ -7,7 +7,7 @@ import Loading, {withLoading} from './Loading';
 import CheckoutForm from './CheckoutForm'
 import OrderStatus from './OrderStatus'
 import ZinesTable from './ZinesTable'
-import SavedCardsList from './SavedCardsList'
+import SavedPaymentMethodsList from './SavedPaymentMethodsList'
 import TriggerCheckout from './TriggerCheckout'
 
 class Shop extends Component  {
@@ -112,6 +112,7 @@ class Shop extends Component  {
           paymentIntent: {
             id: data.id,
             clientSecret: data.client_secret,
+            paymentMethodTypes: data.payment_method_types,
           }
         },
         callback,
@@ -254,6 +255,7 @@ class Shop extends Component  {
           paymentIntent: {
             id: paymentIntent.id,
             clientSecret: paymentIntent.client_secret,
+            paymentMethodTypes: paymentIntent.payment_method_types,
           },
           selectedItem: paymentIntent.metadata.zine,
         }, function () {
@@ -309,7 +311,7 @@ class Shop extends Component  {
 		    	<div>
             {this.props.customer &&
               <div>
-                <SavedCardsList
+                <SavedPaymentMethodsList
                   customer={this.props.customer}
                   showUse={false}
                   onUse={null}
@@ -321,7 +323,7 @@ class Shop extends Component  {
                 or...
                 <Elements>
                   <TriggerCheckout
-                    label="Save new card (using checkout)"
+                    label="Save payment method using checkout"
                     sessionProvider={this.provideCheckoutSetupSession.bind(this)}
                   />
                 </Elements>

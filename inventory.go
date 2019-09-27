@@ -66,6 +66,16 @@ func LoadZines() ([]Zine, error) {
 			Icon:          "🌧",
 			Account:       "acct_1FKPpsDWQf2hnYeb",
 		},
+		{
+			Id:            "5",
+			Author:        "Louis",
+			Title:         "Brexit News",
+			Edition:       "Sept 2019",
+			PriceAmount:   1000,
+			PriceCurrency: "gbp",
+			Icon:          "🇬🇧",
+			Account:       "acct_1FKPpsDWQf2hnYeb",
+		},
 	}
 
 	return zines, nil

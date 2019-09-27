@@ -5,7 +5,7 @@ import {FormattedDate, FormattedTime} from 'react-intl'
 
 import Loading from './Loading';
 import ZinesTable from './ZinesTable';
-import SavedCardsList from './SavedCardsList';
+import SavedPaymentMethodsList from './SavedPaymentMethodsList';
 import TabSwitcher from './TabSwitcher';
 
 
@@ -162,7 +162,19 @@ class CheckoutForm extends Component {
     } else if (this.state.selectedPaymentMethod == 'sepa_debit') {
       this.useSepaDebit();
     }else {
-      throw new Error("unknown payment method" + this.state.selectedPaymentMethod)
+      throw new Error("unknown payment method " + this.state.selectedPaymentMethod)
+    }
+  }
+
+  onReusePaymentMethod(type, id) {
+    this.startSubmit()
+
+    if (type === 'card') {
+      this.reuseCard(id)
+    } else if (type === 'bacs_debit') {
+      this.reuseBacsDebit(id)
+    } else {
+      throw new Error("unable to reuse payment method of type " + type)
     }
   }
 
@@ -189,9 +201,7 @@ class CheckoutForm extends Component {
     this.finishCardPromise(cardSetupPromise)
   }
 
-  onReuseCard(id) {
-    this.startSubmit()
-
+  reuseCard(id) {
     var cardPaymentPromise = this.props.stripe.handleCardPayment(
       this.props.paymentIntent.clientSecret,
       {
@@ -230,6 +240,17 @@ class CheckoutForm extends Component {
       }
     )
     this.finishCardPromise(sepaDebitPaymentPromise)
+  }
+
+  reuseBacsDebit(id) {
+    var bacsDebitPaymentPromise = this.props.stripe.confirmPaymentIntent(
+      this.props.paymentIntent.clientSecret,
+      {
+        payment_method: id,
+      }
+    )
+
+    this.finishCardPromise(bacsDebitPaymentPromise);
   }
 
   handleSaveCardChange(event) {
@@ -286,6 +307,27 @@ class CheckoutForm extends Component {
     </div>)
   }
 
+  paymentMethodTabs() {
+    return [
+      {
+        name: 'card',
+        value: <CardElement onReady={this.stashCardElement.bind(this)} />,
+      },
+      {
+        name: 'ideal',
+        value: <IdealBankElement onReady={this.stashIdealElement.bind(this)} />,
+        hide: this.props.saveCardOnly,
+      },
+      {
+        name: 'sepa_debit',
+        value: this.renderSepaDebitForm(this.stashIbanElement.bind(this)),
+        hide: this.props.saveCardOnly,
+      },
+    ].filter((tab) =>
+      this.props.paymentIntent.paymentMethodTypes.includes(tab.name)
+    )
+  }
+
 	render() {
 		return (
 			<div className="checkout-form">
@@ -307,6 +349,9 @@ class CheckoutForm extends Component {
         {this.props.paymentIntent &&
           <div>
   				  Payment Intent: <code>{this.props.paymentIntent.id}</code>
+            —
+            <code>{JSON.stringify(this.props.paymentIntent.paymentMethodTypes)}</code>
+
           </div>
         }
 
@@ -316,38 +361,25 @@ class CheckoutForm extends Component {
           </div>
         }
 
-				{this.state.error &&
-			    <div className="alert-danger">
-            {this.state.error.toString()}
-          </div>
-        }
         {(this.props.customer && !this.props.saveCardOnly) &&
-          <SavedCardsList
+          <SavedPaymentMethodsList
             customer={this.props.customer}
             showUse={this.showSubmit()}
-            onUse={this.onReuseCard.bind(this)}
+            limitUseToTypes={this.props.paymentIntent.paymentMethodTypes}
+            onUse={this.onReusePaymentMethod.bind(this)}
           />
+        }
+
+        {this.state.error &&
+          <div className="alert-danger">
+            {this.state.error.toString()}
+          </div>
         }
 
         <div class="payment-method-switcher">
           <TabSwitcher
             disabled={this.state.submitStarted}
-            tabs={[
-              {
-                name: 'card',
-                value: <CardElement onReady={this.stashCardElement.bind(this)} />,
-              },
-              {
-                name: 'ideal',
-                value: <IdealBankElement onReady={this.stashIdealElement.bind(this)} />,
-                hide: this.props.saveCardOnly,
-              },
-              {
-                name: 'sepa_debit',
-                value: this.renderSepaDebitForm(this.stashIbanElement.bind(this)),
-                hide: this.props.saveCardOnly,
-              },
-            ]}
+            tabs={this.paymentMethodTabs()}
             selected={this.state.selectedPaymentMethod}
             onChange={this.handlePaymentMethodChange.bind(this)}
           />
