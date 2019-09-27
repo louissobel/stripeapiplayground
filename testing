@@ -1,0 +1,14 @@
+testing:
+
+- non logged in:
+  - card payment (success + 3ds failure + decline)
+  - ideal payment (auth fail and auth succeed)
+  - sepa debit payment (fail and succeed)
+
+- logged in:
+  - card payment + save card
+  - save only card
+  - checkout setup card
+  - checkout setup bacs debit
+  - use saved card
+  - use saved bacs debit

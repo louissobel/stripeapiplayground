@@ -1,7 +1,5 @@
 import React, { Component } from 'react';
-import {CardElement, injectStripe, Elements, StripeProvider, IdealBankElement, IbanElement} from 'react-stripe-elements';
-
-import {FormattedDate, FormattedTime} from 'react-intl'
+import {CardElement, injectStripe, IdealBankElement, IbanElement} from 'react-stripe-elements';
 
 import Loading from './Loading';
 import ZinesTable from './ZinesTable';
@@ -12,7 +10,7 @@ import TabSwitcher from './TabSwitcher';
 function TestDataTable({paymentMethod}) {
 	return (
     <div>
-    {paymentMethod == 'card' &&
+    {paymentMethod === 'card' &&
       <table>
     		<tr><th>Number</th> <th>3DS Usage</th> <th>Description</th></tr>
   			<tr><td>4000000000003063</td>	<td>required</td>	<td>3D Secure authentication must be completed for the payment to be successful.</td></tr>
@@ -24,11 +22,11 @@ function TestDataTable({paymentMethod}) {
   		</table>
     }
 
-    {paymentMethod == 'ideal' &&
+    {paymentMethod === 'ideal' &&
       <span><i>No Test Data</i></span>
     }
 
-    {paymentMethod == 'sepa_debit' &&
+    {paymentMethod === 'sepa_debit' &&
       <table>
         <tr><th>IBAN</th> <th>Description</th></tr>
         <tr><td>DE89370400440532013000</td> <td>The charge status transitions from pending to succeeded.</td></tr>
@@ -89,11 +87,11 @@ class CheckoutForm extends Component {
 
   showSubmit() {
     var elementReady = (
-      this.state.selectedPaymentMethod == 'card' && this.state.cardElement !== null
+      (this.state.selectedPaymentMethod === 'card' && this.state.cardElement !== null)
       ||
-      this.state.selectedPaymentMethod == 'ideal' && this.state.idealElement !== null
+      (this.state.selectedPaymentMethod === 'ideal' && this.state.idealElement !== null)
       ||
-      this.state.selectedPaymentMethod == 'sepa_debit' && this.state.ibanElement !== null
+      (this.state.selectedPaymentMethod === 'sepa_debit' && this.state.ibanElement !== null)
     )
   	return elementReady && !this.state.submitGoingLong && !this.state.complete
   }
@@ -151,15 +149,15 @@ class CheckoutForm extends Component {
   onSubmit(ev) {
     this.startSubmit()
 
-    if (this.state.selectedPaymentMethod == 'card') {
+    if (this.state.selectedPaymentMethod === 'card') {
       if (this.props.saveCardOnly) {
         this.setupCard()
       } else {
         this.useCard();
       }
-    } else if (this.state.selectedPaymentMethod == 'ideal') {
+    } else if (this.state.selectedPaymentMethod === 'ideal') {
       this.useIdeal();
-    } else if (this.state.selectedPaymentMethod == 'sepa_debit') {
+    } else if (this.state.selectedPaymentMethod === 'sepa_debit') {
       this.useSepaDebit();
     }else {
       throw new Error("unknown payment method " + this.state.selectedPaymentMethod)
@@ -385,7 +383,7 @@ class CheckoutForm extends Component {
           />
         </div>
 
-        {(this.props.customer && !this.props.saveCardOnly && this.state.selectedPaymentMethod == 'card') &&
+        {(this.props.customer && !this.props.saveCardOnly && this.state.selectedPaymentMethod === 'card') &&
           <div>
             <input
               type="checkbox"

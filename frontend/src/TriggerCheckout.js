@@ -1,11 +1,7 @@
 import React, {Component} from 'react';
-import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
+import {injectStripe} from 'react-stripe-elements';
 
 class TriggerCheckout extends Component  {
-  constructor(props) {
-    super(props);
-  }
-
   onClick() {
     this.props.sessionProvider(function(session) {
       this.props.stripe.redirectToCheckout({

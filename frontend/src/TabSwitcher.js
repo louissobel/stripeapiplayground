@@ -24,7 +24,7 @@ class TabSwitcher extends Component {
 	}
 
 	activeTab() {
-		return this.props.tabs.find((tab) => tab.name == this.props.selected).value
+		return this.props.tabs.find((tab) => tab.name === this.props.selected).value
 	}
 
 	render() {

@@ -1,8 +1,7 @@
-import React, { Component } from 'react';
+import React from 'react';
 import ReactJson from 'react-json-view'
 import { Link } from 'react-router-dom'
 
-import Loading from './Loading';
 import ZinesTable from './ZinesTable'
 
 function OrderStatus(props) {
@@ -10,7 +9,7 @@ function OrderStatus(props) {
     <div>
       <h3>Order Status <code>{props.paymentIntentID}</code></h3>
         <h4><code>{props.status}</code></h4>
-        {props.status == "requires_payment_method" && props.rawPaymentIntent.last_payment_error && 
+        {props.status === "requires_payment_method" && props.rawPaymentIntent.last_payment_error && 
           <div>
             <div class="alert-danger panel">
               {props.rawPaymentIntent.last_payment_error.message}
@@ -48,19 +47,14 @@ function OrderStatus(props) {
           displayDataTypes={false}
           name="paymentIntent"
           shouldCollapse={(field) => {
-            return (
-              field.name == "transfer_data"
-              ||
-              field.name == "charges"
-              ||
-              field.name == "last_payment_error"
-              ||
-              field.name == "last_payment_error"
-              ||
-              field.name == "shipping"
-              ||
-              field.name == "customer"
-            )
+            return [
+              "transfer_data",
+              "charges",
+              "last_payment_error",
+              "last_payment_error",
+              "shipping",
+              "customer",
+            ].includes(field.name)
           }}
         />
 

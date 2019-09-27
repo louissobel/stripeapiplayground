@@ -1,11 +1,10 @@
 import React, { Component } from 'react';
 import queryString from 'query-string';
-import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
+import {Elements} from 'react-stripe-elements';
 import { Redirect } from 'react-router-dom'
 
-import Loading, {withLoading} from './Loading';
+import Loading from './Loading';
 import CheckoutForm from './CheckoutForm'
-import OrderStatus from './OrderStatus'
 import ZinesTable from './ZinesTable'
 import SavedPaymentMethodsList from './SavedPaymentMethodsList'
 import TriggerCheckout from './TriggerCheckout'
@@ -32,7 +31,7 @@ class Shop extends Component  {
 
   loadZineById(id) {
   	return this.props.data.find((z) => {
-  		return z.id == id
+  		return z.id === id
   	})
   }
 
@@ -63,7 +62,7 @@ class Shop extends Component  {
   saveCardUsingCheckout() {
     this.createCheckoutSetupSession(function (session) {
       console.log(session)
-    }.bind(this))
+    })
   }
 
   doAPIPostRequest(url, params, callback) {
@@ -259,7 +258,7 @@ class Shop extends Component  {
           },
           selectedItem: paymentIntent.metadata.zine,
         }, function () {
-          if (paymentIntent.status == "succeeded") {
+          if (paymentIntent.status === "succeeded") {
             this.mabyeFinalizePaymentIntent(this.state.paymentIntent.id, function() {
               this.setState({
                 checkoutDone: true,

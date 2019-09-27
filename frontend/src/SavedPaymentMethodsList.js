@@ -1,9 +1,9 @@
-import React, { Component } from 'react';
+import React from 'react';
 
 import {FormattedDate, FormattedTime} from 'react-intl'
 
 function SavedPaymentMethodsList({ customer, showUse, onUse, limitUseToTypes}) {
-  if (customer.payment_methods.length == 0) {
+  if (customer.payment_methods.length === 0) {
     return <h4>No saved PaymentMethods</h4>
   } else {
     var paymentMethods = []

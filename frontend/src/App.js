@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Route, Link } from "react-router-dom";
 import {StripeProvider} from 'react-stripe-elements';
 
 import './App.css';
-import Loading, {withLoading} from './Loading';
+import {withLoading} from './Loading';
 import Shop from './Shop';
 import OrderStatus from './OrderStatus';
 import {IntlProvider} from 'react-intl';
