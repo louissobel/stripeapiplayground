@@ -5,13 +5,14 @@ import {StripeProvider} from 'react-stripe-elements';
 import './App.css';
 import Loading, {withLoading} from './Loading';
 import Shop from './Shop';
+import OrderStatus from './OrderStatus';
 import {IntlProvider} from 'react-intl';
 
 class App extends Component {
   render() {
     return (
       <div className="App">
-        <StripeProvider apiKey={process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY} betas={['card_payment_method_beta_1', 'ideal_pm_beta_1']}>
+        <StripeProvider apiKey={process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY} betas={['card_payment_method_beta_1', 'ideal_pm_beta_1', 'sepa_pm_beta_1']}>
           <IntlProvider>
             <Router>
               <div className="App-header">
@@ -29,6 +30,7 @@ class App extends Component {
               } />
               <Route exact path="/shop" component={Shop} />
               <Route path="/logged_in_as/:id" component={LoggedIn} />
+              <Route path="/order/:id" component={WrappedOrderStatus} />
             </Router>
           </IntlProvider>
         </StripeProvider>
@@ -103,6 +105,31 @@ function LoggedIn({ match, location }) {
       <ShopWithCustomer />
     </div>
   );
+}
+
+function WrappedOrderStatus({ match }) {
+  const OrderStatusWithPaymentIntent = withLoading(function(props) {
+    var {data, ...rest} = props;
+    return <OrderStatus
+      paymentIntentID={data.id}
+      status={data.status}
+      zineID={data.metadata.zine}
+      fulfillmentURL={data.metadata.fulfillment_url}
+      rawPaymentIntent={data}
+      {...rest}
+    />
+  }, `/api/load_payment_intent`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: match.params.id,
+    }),
+  })
+
+  return <OrderStatusWithPaymentIntent />
 }
 
 export default App;

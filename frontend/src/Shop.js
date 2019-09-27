@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import queryString from 'query-string';
 import {CardElement, injectStripe, Elements, StripeProvider} from 'react-stripe-elements';
+import { Redirect } from 'react-router-dom'
 
 import Loading, {withLoading} from './Loading';
 import CheckoutForm from './CheckoutForm'
-import OrderComplete from './OrderComplete'
+import OrderStatus from './OrderStatus'
 import ZinesTable from './ZinesTable'
 import SavedCardsList from './SavedCardsList'
 import TriggerCheckout from './TriggerCheckout'
@@ -21,12 +22,11 @@ class Shop extends Component  {
 
       paymentIntent: null,
       actionInProgress: null,
-      fulfillmentURL: null,
 
       error: null,
       checkoutDone: false,
 
-      finishingRedirect: false,
+      reenteringCheckout: false,
     };
   }
 
@@ -157,17 +157,16 @@ class Shop extends Component  {
     }.bind(this))
   }
 
-  finalizePaymentIntent(id, callback) {
+  mabyeFinalizePaymentIntent(id, callback) {
     this.setState({
-      actionInProgress: 'finalizing payment intent',
+      actionInProgress: 'maybe finalizing payment intent',
     })
-    this.doAPIPostRequest('/api/finalize_payment_intent', {
+    this.doAPIPostRequest('/api/maybe_finalize_payment_intent', {
       id: id,
     }, function(data) {
       this.setState(
         {
           actionInProgress: null,
-          fulfillmentURL: data.fulfillment_url,
         },
         callback,
       )
@@ -237,17 +236,18 @@ class Shop extends Component  {
   }
 
 	checkoutSuccess() {
-    this.finalizePaymentIntent(this.state.paymentIntent.id, function() {
+    this.mabyeFinalizePaymentIntent(this.state.paymentIntent.id, function() {
       this.setState({
         checkoutDone: true,
       })
     }.bind(this))
 	}
 
-  finishRedirect(paymentIntentID) {
+  reenterCheckout(paymentIntentID, paymentMethod, action) {
     this.setState({
-      finishingRedirect: true,
-      actionInProgress: "finishing redirect"
+      reenteringCheckout: true,
+      actionInProgress: action,
+      initialPaymentMethod: paymentMethod,
     }, function() {
       this.loadPaymentIntent(paymentIntentID, function(paymentIntent) {
         this.setState({
@@ -258,7 +258,7 @@ class Shop extends Component  {
           selectedItem: paymentIntent.metadata.zine,
         }, function () {
           if (paymentIntent.status == "succeeded") {
-            this.finalizePaymentIntent(this.state.paymentIntent.id, function() {
+            this.mabyeFinalizePaymentIntent(this.state.paymentIntent.id, function() {
               this.setState({
                 checkoutDone: true,
               })
@@ -276,8 +276,8 @@ class Shop extends Component  {
 
   render() {
     const query = queryString.parse(this.props.location.search);
-    if (query.finishingRedirect && !this.state.finishingRedirect) {
-      this.finishRedirect(query.payment_intent)
+    if (query.reenteringCheckout && !this.state.reenteringCheckout) {
+      this.reenterCheckout(query.payment_intent, query.reenterAction)
       return ""
     }
 
@@ -300,11 +300,7 @@ class Shop extends Component  {
   	}
 
   	if (this.state.checkoutDone) {
-  		return <OrderComplete
-        zine={this.loadZineById(this.state.selectedItem)}
-        paymentIntent={this.state.paymentIntent}
-        fulfillmentURL={this.state.fulfillmentURL}
-      />
+      return <Redirect to={`/order/${this.state.paymentIntent.id}`} />
   	}
 
 	  return (
@@ -359,7 +355,7 @@ class Shop extends Component  {
 		      	<div>
 			      	<Elements>
 			      		<CheckoutForm
-                  zine={this.loadZineById(this.state.selectedItem)}
+                  zineID={this.state.selectedItem}
 			      			paymentIntent={this.state.paymentIntent}
 			      			onComplete={this.checkoutSuccess.bind(this)}
                   onCancel={this.cancelOrder.bind(this)}
@@ -374,4 +370,4 @@ class Shop extends Component  {
 	}
 }
 
-export default withLoading(Shop, "/api/zines");
+export default Shop;

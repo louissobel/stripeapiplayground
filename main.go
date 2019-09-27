@@ -56,7 +56,7 @@ type FinishCheckoutSetupSessionRequest struct {
 	SessionID string `query:"session"`
 }
 
-type FinalizePaymentIntentRequest struct {
+type MaybeFinalizePaymentIntentRequest struct {
 	ID string `json:"id"`
 }
 
@@ -159,19 +159,19 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]string{"id": r.ID})
 	})
 
-	e.POST("/api/finalize_payment_intent", func(c echo.Context) error {
-		r := new(FinalizePaymentIntentRequest)
+	e.POST("/api/maybe_finalize_payment_intent", func(c echo.Context) error {
+		r := new(MaybeFinalizePaymentIntentRequest)
 		err := c.Bind(r)
 		if err != nil {
 			return err
 		}
 
-		fulfillmentURL, err := finalizePaymentIntent(r)
+		_, ok, err := maybeFinalizePaymentIntent(r)
 		if err != nil {
 			return err
 		}
-		return c.JSON(http.StatusOK, map[string]string{
-			"fulfillment_url": fulfillmentURL,
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"finished": ok,
 		})
 	})
 
@@ -344,6 +344,7 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 		PaymentMethodTypes: stripe.StringSlice([]string{
 			"card",
 			"ideal",
+			"sepa_debit",
 		}),
 		Amount:   stripe.Int64(int64(zine.PriceAmount)),
 		Currency: stripe.String(zine.PriceCurrency),
@@ -364,7 +365,9 @@ func createPaymentIntent(r *CreatePaymentIntentRequest) (*stripe.PaymentIntent, 
 }
 
 func loadPaymentIntent(r *LoadPaymentIntentRequest) (*stripe.PaymentIntent, error) {
-	return paymentintent.Get(r.ID, nil)
+	// go ahead and maybe finalize it!
+	pi, _, err := maybeFulfillPaymentIntent(r.ID)
+	return pi, err
 }
 
 func cancelPaymentIntent(r *CancelPaymentIntentRequest) error {
@@ -372,8 +375,8 @@ func cancelPaymentIntent(r *CancelPaymentIntentRequest) error {
 	return err
 }
 
-func finalizePaymentIntent(r *FinalizePaymentIntentRequest) (string, error) {
-	return fulfillPaymentIntent(r.ID)
+func maybeFinalizePaymentIntent(r *MaybeFinalizePaymentIntentRequest) (*stripe.PaymentIntent, bool, error) {
+	return maybeFulfillPaymentIntent(r.ID)
 }
 
 func createSetupIntent(r *CreateSetupIntentRequest) (*stripe.SetupIntent, error) {
@@ -498,20 +501,25 @@ func finishCheckoutSetupSession(r *FinishCheckoutSetupSessionRequest) (string, e
 }
 
 // Idempotently fulfills the payment intent
-func fulfillPaymentIntent(id string) (string, error) {
+func maybeFulfillPaymentIntent(id string) (*stripe.PaymentIntent, bool, error) {
 	// Load it and make sure it's actually success!
 	pi, err := paymentintent.Get(id, nil)
 	if err != nil {
-		return "", fmt.Errorf("error getting PaymentIntent: %v", err)
+		return nil, false, fmt.Errorf("error getting PaymentIntent: %v", err)
 	}
 
 	if pi.Status != "succeeded" {
-		return "", fmt.Errorf("cannot fulfill payment intent with status %v", pi.Status)
+		fmt.Printf(
+			"not fulfilling payment intent %s, it is in state %s rather than succeeded!!\n",
+			id,
+			pi.Status,
+		)
+		return nil, false, nil
 	}
 
 	if pi.Metadata["fulfillment_url"] != "" {
 		// Fine, it's already been fulfilled!
-		return pi.Metadata["fulfillment_url"], nil
+		return pi, true, nil
 	}
 
 	// Ok, now I get to fulfill. Of course, there might be a race condition here,
@@ -521,12 +529,12 @@ func fulfillPaymentIntent(id string) (string, error) {
 
 	params := &stripe.PaymentIntentParams{}
 	params.AddMetadata("fulfillment_url", url)
-	_, err = paymentintent.Update(pi.ID, params)
+	pi, err = paymentintent.Update(pi.ID, params)
 	if err != nil {
-		return "", err
+		return nil, false, err
 	}
 
-	return url, nil
+	return pi, true, nil
 }
 
 func attachPaymentMethodToCustomer(paymentMethod, customer string) error {

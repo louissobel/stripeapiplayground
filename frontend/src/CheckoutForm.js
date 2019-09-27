@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {CardElement, injectStripe, Elements, StripeProvider, IdealBankElement} from 'react-stripe-elements';
+import {CardElement, injectStripe, Elements, StripeProvider, IdealBankElement, IbanElement} from 'react-stripe-elements';
 
 import {FormattedDate, FormattedTime} from 'react-intl'
 
@@ -9,17 +9,34 @@ import SavedCardsList from './SavedCardsList';
 import TabSwitcher from './TabSwitcher';
 
 
-function TestCardsTable() {
+function TestDataTable({paymentMethod}) {
 	return (
-    <table>
-  		<tr><th>Number</th> <th>3DS Usage</th> <th>Description</th></tr>
-			<tr><td>4000000000003063</td>	<td>required</td>	<td>3D Secure authentication must be completed for the payment to be successful.</td></tr>
-			<tr><td>4000000000003089</td>	<td>recommended</td>	<td>3D Secure is supported and recommended but not required on this card. Payments succeed whether 3D Secure is used or not.</td></tr>
-			<tr><td>4000000000003055</td>	<td>optional</td>	<td>3D Secure is supported but not required on this card. 3D Secure authentication may still be performed, but is not required. Payments succeed whether 3D Secure is used or not.</td></tr>
-			<tr><td>4242424242424242</td>	<td>optional</td>	<td>3D Secure is supported for this card, but this card is not enrolled in 3D Secure. This means that if 3D Secure is invoked, the customer is not asked to authenticate. Payments succeed whether 3D Secure is invoked or not.</td></tr>
-			<tr><td>378282246310005</td>	<td>not_supported</td>	<td>3D Secure is not supported on this card and cannot be invoked.</td></tr>
-      <tr><td>4000002500003155</td> <td>required on setup</td> <td>This test card requires authentication for one-time payments. However, if you set up this card using the Setup Intents API and use the saved card for subsequent payments, no further authentication is needed.</td></tr>
-		</table>
+    <div>
+    {paymentMethod == 'card' &&
+      <table>
+    		<tr><th>Number</th> <th>3DS Usage</th> <th>Description</th></tr>
+  			<tr><td>4000000000003063</td>	<td>required</td>	<td>3D Secure authentication must be completed for the payment to be successful.</td></tr>
+  			<tr><td>4000000000003089</td>	<td>recommended</td>	<td>3D Secure is supported and recommended but not required on this card. Payments succeed whether 3D Secure is used or not.</td></tr>
+  			<tr><td>4000000000003055</td>	<td>optional</td>	<td>3D Secure is supported but not required on this card. 3D Secure authentication may still be performed, but is not required. Payments succeed whether 3D Secure is used or not.</td></tr>
+  			<tr><td>4242424242424242</td>	<td>optional</td>	<td>3D Secure is supported for this card, but this card is not enrolled in 3D Secure. This means that if 3D Secure is invoked, the customer is not asked to authenticate. Payments succeed whether 3D Secure is invoked or not.</td></tr>
+  			<tr><td>378282246310005</td>	<td>not_supported</td>	<td>3D Secure is not supported on this card and cannot be invoked.</td></tr>
+        <tr><td>4000002500003155</td> <td>required on setup</td> <td>This test card requires authentication for one-time payments. However, if you set up this card using the Setup Intents API and use the saved card for subsequent payments, no further authentication is needed.</td></tr>
+  		</table>
+    }
+
+    {paymentMethod == 'ideal' &&
+      <span><i>No Test Data</i></span>
+    }
+
+    {paymentMethod == 'sepa_debit' &&
+      <table>
+        <tr><th>IBAN</th> <th>Description</th></tr>
+        <tr><td>DE89370400440532013000</td> <td>The charge status transitions from pending to succeeded.</td></tr>
+        <tr><td>DE62370400440532013001</td> <td>The charge status transitions from pending to failed.</td></tr>
+        <tr><td>DE35370400440532013002</td> <td>The charge status transitions from pending to succeeded, but a dispute is immediately created.</td></tr>
+      </table>
+    }
+    </div>
 	)
 }
 
@@ -34,7 +51,7 @@ class CheckoutForm extends Component {
     	error: props.redirectError || null,
     	cardElement: null,
       idealElement: null,
-    	showTestCards: false,
+    	showTestData: false,
 
       saveCard: false,
 
@@ -46,6 +63,9 @@ class CheckoutForm extends Component {
     	submitGoingLongTimeout: null,
 
       selectedPaymentMethod: 'card',
+
+      customerName: "",
+      customerEmail: "",
     }
   }
 
@@ -61,18 +81,26 @@ class CheckoutForm extends Component {
     })
   }
 
+  stashIbanElement(e) {
+    this.setState({
+      ibanElement: e,
+    })
+  }
+
   showSubmit() {
     var elementReady = (
       this.state.selectedPaymentMethod == 'card' && this.state.cardElement !== null
       ||
       this.state.selectedPaymentMethod == 'ideal' && this.state.idealElement !== null
+      ||
+      this.state.selectedPaymentMethod == 'sepa_debit' && this.state.ibanElement !== null
     )
   	return elementReady && !this.state.submitGoingLong && !this.state.complete
   }
 
-  setShowTestCardsTrue() {
+  setShowTestData() {
   	this.setState({
-  		showTestCards: true,
+  		showTestData: true,
   	})
   }
 
@@ -131,7 +159,9 @@ class CheckoutForm extends Component {
       }
     } else if (this.state.selectedPaymentMethod == 'ideal') {
       this.useIdeal();
-    } else {
+    } else if (this.state.selectedPaymentMethod == 'sepa_debit') {
+      this.useSepaDebit();
+    }else {
       throw new Error("unknown payment method" + this.state.selectedPaymentMethod)
     }
   }
@@ -173,7 +203,7 @@ class CheckoutForm extends Component {
   }
 
   useIdeal() {
-    var returnPath = (this.props.customer ? '/logged_in_as/' + this.props.customer.id : '/shop') + '?finishingRedirect=true'
+    var returnPath = (this.props.customer ? '/logged_in_as/' + this.props.customer.id : '/shop') + '?reenteringCheckout=true&reenterAction=finshing%20redirect'
     var returnURL = 'http://localhost:3000' + returnPath 
     var idealPaymentPromise = this.props.stripe.handleIdealPayment(
       this.props.paymentIntent.clientSecret,
@@ -186,6 +216,22 @@ class CheckoutForm extends Component {
     this.finishCardPromise(idealPaymentPromise)
   }
 
+  useSepaDebit() {
+    var sepaDebitPaymentPromise = this.props.stripe.handleSepaDebitPayment(
+      this.props.paymentIntent.clientSecret,
+      this.state.ibanElement,
+      {
+        payment_method_data: {
+          billing_details: {
+            name: this.state.customerName,
+            email: this.state.customerEmail,
+          }
+        }
+      }
+    )
+    this.finishCardPromise(sepaDebitPaymentPromise)
+  }
+
   handleSaveCardChange(event) {
     const target = event.target;
     this.setState({
@@ -196,7 +242,48 @@ class CheckoutForm extends Component {
   handlePaymentMethodChange(paymentMethod) {
     this.setState({
       selectedPaymentMethod: paymentMethod,
+      error: null,
     })
+  }
+
+  handleCustomerNameChange(e) {
+    this.setState({
+      customerName: e.target.value,
+    })
+  }
+
+  handleCustomerEmailChange(e) {
+    this.setState({
+      customerEmail: e.target.value,
+    })
+  }
+
+  renderSepaDebitForm(onElementReady) {
+    return (<div>
+      <div>
+        <label for="name">
+          Name
+        </label>
+        <input
+          name="name"
+          value={this.state.customerName}
+          onChange={this.handleCustomerNameChange.bind(this)}
+          placeholder="Oscar Pops"
+        />
+      </div>
+      <div>
+        <label for="email">
+          Email
+        </label>
+        <input
+          name="email"
+          value={this.state.customerEmail}
+          onChange={this.handleCustomerEmailChange.bind(this)}
+          placeholder="oscar@pops.com"
+        />
+      </div>
+      <IbanElement supportedCountries={['SEPA']} onReady={onElementReady} />
+    </div>)
   }
 
 	render() {
@@ -204,7 +291,7 @@ class CheckoutForm extends Component {
 			<div className="checkout-form">
         {!this.props.saveCardOnly &&
           <ZinesTable
-            zines={[this.props.zine]}
+            showOnly={this.props.zineID}
             action="Cancel"
             onClick={this.props.onCancel}
           />
@@ -255,6 +342,11 @@ class CheckoutForm extends Component {
                 value: <IdealBankElement onReady={this.stashIdealElement.bind(this)} />,
                 hide: this.props.saveCardOnly,
               },
+              {
+                name: 'sepa_debit',
+                value: this.renderSepaDebitForm(this.stashIbanElement.bind(this)),
+                hide: this.props.saveCardOnly,
+              },
             ]}
             selected={this.state.selectedPaymentMethod}
             onChange={this.handlePaymentMethodChange.bind(this)}
@@ -285,13 +377,13 @@ class CheckoutForm extends Component {
 		    </div>
 
       	<div>
-      		{this.state.showTestCards ? (
+      		{this.state.showTestData ? (
 	      		<div>
-	      			<h3>Test Cards</h3>
-	      			<TestCardsTable />
+	      			<h3>Test Data</h3>
+	      			<TestDataTable paymentMethod={this.state.selectedPaymentMethod} />
 	      		</div>
 	      	) : (
-	      		<button onClick={this.setShowTestCardsTrue.bind(this)}>Show Test Cards</button>
+	      		<button onClick={this.setShowTestData.bind(this)}>Show Test Data</button>
 	      	)}
       	</div>
 

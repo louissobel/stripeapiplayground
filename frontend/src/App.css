@@ -2,6 +2,14 @@
   color: red;
 }
 
+.alert-danger.panel {
+  background-color:#ff7070;
+  color: black;
+  width: 700px;
+  margin: 15px;
+  padding: 15px;
+}
+
 .App {
   padding: 10px;
 }
@@ -56,6 +64,13 @@
   height:40px;
   background-color:#446d32;
   color: white;
+  text-align: center;
+  vertical-align: center;
+}
+
+.link-action-button {
+  display:block;
+  line-height: 40px;
 }
 
 .inline-action-button {

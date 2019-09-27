@@ -1,10 +1,15 @@
 import React from 'react';
 
+import Loading, {withLoading} from './Loading';
 import {FormattedNumber} from 'react-intl'
 
 function ZinesTable(props) {
 	var rows = [];
-	props.zines.forEach((z) => {
+	props.data.forEach((z) => {
+    if (props.showOnly && props.showOnly != z.id) {
+      return;
+    }
+
 		rows.push(
 			<tr>
 			  <td className="zine-icon">{z.icon}</td>
@@ -46,4 +51,4 @@ function ZinesTable(props) {
   )
 }
 
-export default ZinesTable
+export default withLoading(ZinesTable, "/api/zines")
