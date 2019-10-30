@@ -7,7 +7,7 @@ import SavedPaymentMethodsList from './SavedPaymentMethodsList';
 import TabSwitcher from './TabSwitcher';
 
 
-function TestDataTable({paymentMethod}) {
+function TestDataTable({paymentMethod, onBacsDebitFill}) {
 	return (
     <div>
     {paymentMethod === 'card' &&
@@ -32,6 +32,16 @@ function TestDataTable({paymentMethod}) {
         <tr><td>DE89370400440532013000</td> <td>The charge status transitions from pending to succeeded.</td></tr>
         <tr><td>DE62370400440532013001</td> <td>The charge status transitions from pending to failed.</td></tr>
         <tr><td>DE35370400440532013002</td> <td>The charge status transitions from pending to succeeded, but a dispute is immediately created.</td></tr>
+      </table>
+    }
+
+    {paymentMethod === 'bacs_debit' &&
+      <table>
+        <tr><th></th> <th>Sort Code</th> <th>Account Number</th> <th>Description</th></tr>
+        <tr>
+          <td><button onClick={() => onBacsDebitFill({sortCode: '108800', accountNumber:'00012345'})}>Fill</button></td>
+          <td>108800</td> <td>00012345</td> <td>Succeeds</td>
+        </tr>
       </table>
     }
     </div>
@@ -193,10 +203,12 @@ class CheckoutForm extends Component {
   }
 
   useCard() {
-		var cardPaymentPromise = this.props.stripe.handleCardPayment(
+		var cardPaymentPromise = this.props.stripe.confirmCardPayment(
 			this.props.paymentIntent.clientSecret,
-			this.state.cardElement,
-      {
+			{
+        payment_method: {
+          card: this.state.cardElement,
+        },
         save_payment_method: this.state.saveCard,
       }
 		)
@@ -205,9 +217,13 @@ class CheckoutForm extends Component {
 	}
 
   setupCard() {
-    var cardSetupPromise = this.props.stripe.handleCardSetup(
+    var cardSetupPromise = this.props.stripe.confirmCardSetup(
       this.props.setupIntent.clientSecret,
-      this.state.cardElement,
+      {
+        payment_method: {
+          card: this.state.cardElement,
+        },
+      }
     ).then(function (result) {
       return result.setupIntent
     })
@@ -216,7 +232,7 @@ class CheckoutForm extends Component {
   }
 
   reuseCard(id) {
-    var cardPaymentPromise = this.props.stripe.handleCardPayment(
+    var cardPaymentPromise = this.props.stripe.confirmCardPayment(
       this.props.paymentIntent.clientSecret,
       {
         payment_method: id,
@@ -229,10 +245,12 @@ class CheckoutForm extends Component {
   useIdeal() {
     var returnPath = (this.props.customer ? '/logged_in_as/' + this.props.customer.id : '/shop') + '?reenteringCheckout=true&reenterAction=finshing%20redirect'
     var returnURL = 'http://localhost:3000' + returnPath 
-    var idealPaymentPromise = this.props.stripe.handleIdealPayment(
+    var idealPaymentPromise = this.props.stripe.confirmIdealPayment(
       this.props.paymentIntent.clientSecret,
-      this.state.idealElement,
       {
+        payment_method: {
+          ideal: this.state.idealElement,
+        },
         return_url: returnURL,
       }
     );
@@ -241,11 +259,11 @@ class CheckoutForm extends Component {
   }
 
   useSepaDebit() {
-    var sepaDebitPaymentPromise = this.props.stripe.handleSepaDebitPayment(
+    var sepaDebitPaymentPromise = this.props.stripe.confirmSepaDebitPayment(
       this.props.paymentIntent.clientSecret,
-      this.state.ibanElement,
       {
-        payment_method_data: {
+        payment_method: {
+          sepa_debit: this.state.ibanElement,
           billing_details: {
             name: this.state.customerName,
             email: this.state.customerEmail,
@@ -257,11 +275,10 @@ class CheckoutForm extends Component {
   }
 
   setupBacsDebit() {
-    var bacsDebitSetupPromise = this.props.stripe.confirmSetupIntent(
+    var bacsDebitSetupPromise = this.props.stripe.confirmBacsDebitSetup(
       this.props.setupIntent.clientSecret,
       {
-        payment_method_data: {
-          type: 'bacs_debit',
+        payment_method: {
           bacs_debit: {
             sort_code: this.state.bacsDebitSortCode,
             account_number: this.state.bacsDebitAccountNumber,
@@ -277,14 +294,6 @@ class CheckoutForm extends Component {
             }
           }
         },
-        mandate_data: {
-          customer_acceptance: {
-            type: 'online',
-            online: {
-              infer_from_client: true,
-            },
-          },
-        }
       }
     ).then(function (result) {
       return result.setupIntent
@@ -527,6 +536,20 @@ class CheckoutForm extends Component {
     }
   }
 
+  fillBacsDebitTestData(data) {
+    this.setState({
+      bacsDebitSortCode: data.sortCode,
+      bacsDebitAccountNumber: data.accountNumber,
+
+      customerName: 'Oscar Pops',
+      customerEmail: 'oscar@pops.com',
+      customerLine1: '123 Main Street',
+      customerCity: 'London',
+      customerPostal: 'ABC123',
+      customerCountry: 'GB',
+    })
+  }
+
 	render() {
 		return (
 			<div className="checkout-form">
@@ -611,7 +634,10 @@ class CheckoutForm extends Component {
       		{this.state.showTestData ? (
 	      		<div>
 	      			<h3>Test Data</h3>
-	      			<TestDataTable paymentMethod={this.state.selectedPaymentMethod} />
+	      			<TestDataTable
+                paymentMethod={this.state.selectedPaymentMethod}
+                onBacsDebitFill={this.fillBacsDebitTestData.bind(this)}
+              />
 	      		</div>
 	      	) : (
 	      		<button onClick={this.setShowTestData.bind(this)}>Show Test Data</button>
