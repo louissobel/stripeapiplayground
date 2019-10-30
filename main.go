@@ -389,6 +389,10 @@ func maybeFinalizePaymentIntent(r *MaybeFinalizePaymentIntentRequest) (*stripe.P
 func createSetupIntent(r *CreateSetupIntentRequest) (*stripe.SetupIntent, error) {
 	params := &stripe.SetupIntentParams{
 		Customer: stripe.String(r.CustomerID),
+		PaymentMethodTypes: stripe.StringSlice([]string{
+			"card",
+			"bacs_debit",
+		}),
 	}
 	return setupintent.New(params)
 }

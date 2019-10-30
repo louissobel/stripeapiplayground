@@ -64,6 +64,14 @@ class CheckoutForm extends Component {
 
       customerName: "",
       customerEmail: "",
+
+      customerLine1: "",
+      customerCity: "",
+      customerPostal: "",
+      customerCountry: "",
+
+      bacsDebitSortCode: "",
+      bacsDebitAccountNumber: "",
     }
   }
 
@@ -92,6 +100,8 @@ class CheckoutForm extends Component {
       (this.state.selectedPaymentMethod === 'ideal' && this.state.idealElement !== null)
       ||
       (this.state.selectedPaymentMethod === 'sepa_debit' && this.state.ibanElement !== null)
+      ||
+      (this.state.selectedPaymentMethod === 'bacs_debit' && this.state.ibanElement !== null)
     )
   	return elementReady && !this.state.submitGoingLong && !this.state.complete
   }
@@ -123,7 +133,7 @@ class CheckoutForm extends Component {
     })
   }
 
-  finishCardPromise(cpp) {
+  finishCheckoutPromise(cpp) {
     cpp.then(function(result) {
       if (this.state.submitGoingLongTimeout) {
         clearTimeout(this.state.submitGoingLongTimeout)
@@ -150,7 +160,7 @@ class CheckoutForm extends Component {
     this.startSubmit()
 
     if (this.state.selectedPaymentMethod === 'card') {
-      if (this.props.saveCardOnly) {
+      if (this.props.savePaymentMethodOnly) {
         this.setupCard()
       } else {
         this.useCard();
@@ -159,7 +169,13 @@ class CheckoutForm extends Component {
       this.useIdeal();
     } else if (this.state.selectedPaymentMethod === 'sepa_debit') {
       this.useSepaDebit();
-    }else {
+    } else if (this.state.selectedPaymentMethod === 'bacs_debit') {
+      if (this.props.savePaymentMethodOnly) {
+        this.setupBacsDebit();
+      } else {
+        throw new Error("dont know how to use bacs_debit")
+      }
+    } else {
       throw new Error("unknown payment method " + this.state.selectedPaymentMethod)
     }
   }
@@ -185,7 +201,7 @@ class CheckoutForm extends Component {
       }
 		)
 
-    this.finishCardPromise(cardPaymentPromise)
+    this.finishCheckoutPromise(cardPaymentPromise)
 	}
 
   setupCard() {
@@ -196,7 +212,7 @@ class CheckoutForm extends Component {
       return result.setupIntent
     })
 
-    this.finishCardPromise(cardSetupPromise)
+    this.finishCheckoutPromise(cardSetupPromise)
   }
 
   reuseCard(id) {
@@ -207,7 +223,7 @@ class CheckoutForm extends Component {
       }
     )
 
-    this.finishCardPromise(cardPaymentPromise)
+    this.finishCheckoutPromise(cardPaymentPromise)
   }
 
   useIdeal() {
@@ -221,7 +237,7 @@ class CheckoutForm extends Component {
       }
     );
 
-    this.finishCardPromise(idealPaymentPromise)
+    this.finishCheckoutPromise(idealPaymentPromise)
   }
 
   useSepaDebit() {
@@ -237,7 +253,44 @@ class CheckoutForm extends Component {
         }
       }
     )
-    this.finishCardPromise(sepaDebitPaymentPromise)
+    this.finishCheckoutPromise(sepaDebitPaymentPromise)
+  }
+
+  setupBacsDebit() {
+    var bacsDebitSetupPromise = this.props.stripe.confirmSetupIntent(
+      this.props.setupIntent.clientSecret,
+      {
+        payment_method_data: {
+          type: 'bacs_debit',
+          bacs_debit: {
+            sort_code: this.state.bacsDebitSortCode,
+            account_number: this.state.bacsDebitAccountNumber,
+          },
+          billing_details: {
+            name: this.state.customerName,
+            email: this.state.customerEmail,
+            address: {
+              line1: this.state.customerLine1,
+              city: this.state.customerCity,
+              postal_code: this.state.customerPostal,
+              country: this.state.customerCountry,
+            }
+          }
+        },
+        mandate_data: {
+          customer_acceptance: {
+            type: 'online',
+            online: {
+              infer_from_client: true,
+            },
+          },
+        }
+      }
+    ).then(function (result) {
+      return result.setupIntent
+    })
+
+    this.finishCheckoutPromise(bacsDebitSetupPromise)
   }
 
   reuseBacsDebit(id) {
@@ -248,7 +301,7 @@ class CheckoutForm extends Component {
       }
     )
 
-    this.finishCardPromise(bacsDebitPaymentPromise);
+    this.finishCheckoutPromise(bacsDebitPaymentPromise);
   }
 
   handleSaveCardChange(event) {
@@ -277,32 +330,168 @@ class CheckoutForm extends Component {
     })
   }
 
+  handleCustomerLine1Change(e) {
+    this.setState({
+      customerLine1: e.target.value,
+    })
+  }
+
+  handleCustomerCityChange(e) {
+    this.setState({
+      customerCity: e.target.value,
+    })
+  }
+
+  handleCustomerPostalChange(e) {
+    this.setState({
+      customerPostal: e.target.value,
+    })
+  }
+
+  handleCustomerCountyChange(e) {
+    this.setState({
+      customerCountry: e.target.value,
+    })
+  }
+
+  handleBacsDebitSortCodeChange(e) {
+    this.setState({
+      bacsDebitSortCode: e.target.value,
+    })
+  }
+
+  handleBacsDebitAccountNumberChange(e) {
+    this.setState({
+      bacsDebitAccountNumber: e.target.value,
+    })
+  }
+
+  renderNameEmailForm() {
+    return (
+      <div>
+        <div>
+          <label for="name">
+            Name
+          </label>
+          <input
+            name="name"
+            value={this.state.customerName}
+            onChange={this.handleCustomerNameChange.bind(this)}
+            placeholder="Oscar Pops"
+          />
+        </div>
+
+        <div>
+          <label for="email">
+            Email
+          </label>
+          <input
+            name="email"
+            value={this.state.customerEmail}
+            onChange={this.handleCustomerEmailChange.bind(this)}
+            placeholder="oscar@pops.com"
+          />
+        </div>
+      </div>
+    )
+  }
+
+  renderAddressForm() {
+    return (
+      <div>
+        <div>
+          <label for="line1">
+            Address
+          </label>
+          <input
+            name="line1"
+            value={this.state.customerLine1}
+            onChange={this.handleCustomerLine1Change.bind(this)}
+            placeholder="123 Main Street"
+          />
+        </div>
+
+        <div>
+          <label for="city">
+            City
+          </label>
+          <input
+            name="city"
+            value={this.state.customerCity}
+            onChange={this.handleCustomerCityChange.bind(this)}
+            placeholder="London"
+          />
+        </div>
+
+        <div>
+          <label for="postal">
+            Postal Code
+          </label>
+          <input
+            name="postal"
+            value={this.state.customerPostal}
+            onChange={this.handleCustomerPostalChange.bind(this)}
+            placeholder="D08 H2H0"
+          />
+        </div>
+
+        <div>
+          <label for="country">
+            Country
+          </label>
+          <input
+            name="country"
+            value={this.state.customerCountry}
+            onChange={this.handleCustomerCountyChange.bind(this)}
+            placeholder="GB"
+          />
+        </div>
+
+      </div>
+    )
+  }
+
   renderSepaDebitForm(onElementReady) {
-    return (<div>
+    return (
       <div>
-        <label for="name">
-          Name
-        </label>
-        <input
-          name="name"
-          value={this.state.customerName}
-          onChange={this.handleCustomerNameChange.bind(this)}
-          placeholder="Oscar Pops"
-        />
+        {this.renderNameEmailForm()}
+        <IbanElement supportedCountries={['SEPA']} onReady={onElementReady} />
       </div>
+    )
+  }
+
+  renderBacsDebitForm(onElementReady) {
+    return (
       <div>
-        <label for="email">
-          Email
-        </label>
-        <input
-          name="email"
-          value={this.state.customerEmail}
-          onChange={this.handleCustomerEmailChange.bind(this)}
-          placeholder="oscar@pops.com"
-        />
+        {this.renderNameEmailForm()}
+        {this.renderAddressForm()}
+
+        <div>
+          <div>
+            <label for="Sort Code">
+              Sort Code
+            </label>
+            <input
+              name="Sort Code"
+              value={this.state.bacsDebitSortCode}
+              onChange={this.handleBacsDebitSortCodeChange.bind(this)}
+              placeholder="108800"
+            />
+          </div>
+          <div>
+            <label for="Account Number">
+              Account Number
+            </label>
+            <input
+              name="Account Number"
+              value={this.state.bacsDebitAccountNumber}
+              onChange={this.handleBacsDebitAccountNumberChange.bind(this)}
+              placeholder="00012345"
+            />
+          </div>
+        </div>
       </div>
-      <IbanElement supportedCountries={['SEPA']} onReady={onElementReady} />
-    </div>)
+    )
   }
 
   paymentMethodTabs() {
@@ -314,29 +503,41 @@ class CheckoutForm extends Component {
       {
         name: 'ideal',
         value: <IdealBankElement onReady={this.stashIdealElement.bind(this)} />,
-        hide: this.props.saveCardOnly,
+        hide: this.props.savePaymentMethodOnly,
       },
       {
         name: 'sepa_debit',
         value: this.renderSepaDebitForm(this.stashIbanElement.bind(this)),
-        hide: this.props.saveCardOnly,
+        hide: this.props.savePaymentMethodOnly,
       },
+      {
+        name: 'bacs_debit',
+        value: this.renderBacsDebitForm(),
+      }
     ].filter((tab) =>
-      this.props.paymentIntent.paymentMethodTypes.includes(tab.name)
+      this.paymentMethodTypes().includes(tab.name)
     )
+  }
+
+  paymentMethodTypes() {
+    if (this.props.paymentIntent) {
+      return this.props.paymentIntent.paymentMethodTypes
+    } else {
+      return this.props.setupIntent.paymentMethodTypes
+    }
   }
 
 	render() {
 		return (
 			<div className="checkout-form">
-        {!this.props.saveCardOnly &&
+        {!this.props.savePaymentMethodOnly &&
           <ZinesTable
             showOnly={this.props.zineID}
             action="Cancel"
             onClick={this.props.onCancel}
           />
         }
-        {this.props.saveCardOnly &&
+        {this.props.savePaymentMethodOnly &&
           <button
             onClick={this.props.onCancel}
           >
@@ -359,11 +560,11 @@ class CheckoutForm extends Component {
           </div>
         }
 
-        {(this.props.customer && !this.props.saveCardOnly) &&
+        {(this.props.customer && !this.props.savePaymentMethodOnly) &&
           <SavedPaymentMethodsList
             customer={this.props.customer}
             showUse={this.showSubmit()}
-            limitUseToTypes={this.props.paymentIntent.paymentMethodTypes}
+            limitUseToTypes={this.paymentMethodTypes()}
             onUse={this.onReusePaymentMethod.bind(this)}
           />
         }
@@ -383,7 +584,7 @@ class CheckoutForm extends Component {
           />
         </div>
 
-        {(this.props.customer && !this.props.saveCardOnly && this.state.selectedPaymentMethod === 'card') &&
+        {(this.props.customer && !this.props.savePaymentMethodOnly && this.state.selectedPaymentMethod === 'card') &&
           <div>
             <input
               type="checkbox"
@@ -397,7 +598,7 @@ class CheckoutForm extends Component {
 				<div className="checkout-submit-container" >
 					{this.showSubmit() &&
 		      	<button className="action-button" onClick={this.onSubmit.bind(this)}>
-              {this.props.saveCardOnly ? "Save" : "Submit"}
+              {this.props.savePaymentMethodOnly ? "Save" : "Submit"}
             </button>
 		      }
 

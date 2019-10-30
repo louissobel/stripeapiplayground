@@ -51,15 +51,15 @@ class Shop extends Component  {
     }.bind(this));
   }
 
-  saveCard() {
+  savePaymentMethod() {
     this.createSetupIntent(function () {
       this.setState({
-        savingCard: true,
+        savingPaymentMethod: true,
       })
     }.bind(this))
   }
 
-  saveCardUsingCheckout() {
+  savePaymentMethodUsingCheckout() {
     this.createCheckoutSetupSession(function (session) {
       console.log(session)
     })
@@ -191,6 +191,7 @@ class Shop extends Component  {
           setupIntent: {
             id: data.id,
             clientSecret: data.client_secret,
+            paymentMethodTypes: data.payment_method_types,
           }
         },
         callback,
@@ -229,7 +230,7 @@ class Shop extends Component  {
 
   cancelSetup() {
     this.setState({
-      savingCard: false,
+      savingPaymentMethod: false,
     }, function() {
       this.cancelSetupIntent(this.state.setupIntent.id, function() {})
     }.bind(this));
@@ -306,7 +307,7 @@ class Shop extends Component  {
 
 	  return (
 	    <div>
-	    	{(this.state.selectedItem === null && !this.state.savingCard) &&
+	    	{(this.state.selectedItem === null && !this.state.savingPaymentMethod) &&
 		    	<div>
             {this.props.customer &&
               <div>
@@ -316,8 +317,8 @@ class Shop extends Component  {
                   onUse={null}
                 />
 
-                <button onClick={this.saveCard.bind(this)}>
-                  Save new card
+                <button onClick={this.savePaymentMethod.bind(this)}>
+                  Save new payment method
                 </button>
                 or...
                 <Elements>
@@ -338,11 +339,11 @@ class Shop extends Component  {
 		    	</div>
 		    }
 
-        {this.state.savingCard &&
+        {this.state.savingPaymentMethod &&
           <div>
             <Elements>
               <CheckoutForm
-                saveCardOnly={true}
+                savePaymentMethodOnly={true}
                 setupIntent={this.state.setupIntent}
                 onComplete={this.setupSuccess.bind(this)}
                 onCancel={this.cancelSetup.bind(this)}
